@@ -3,13 +3,15 @@ ofxFatLines
 
 Introduction
 ------------
-openFrameworks addon for drawing nicely antialiased lines of any width.
+openFrameworks addon for drawing nicely antialiased and feathered lines and polylines of any width via openGL.
 Based on VaseRenderer done by Chris Tsang,
 http://artgrammer.blogspot.com/2011/06/vaserendererdraft12.html
 http://www.codeproject.com/Articles/226569/Drawing-polylines-by-tessellation
 
 This addon is quite easy to use.
+
 Check the examples.
+
 It provides two functions:
 The following draws polylines.
 
