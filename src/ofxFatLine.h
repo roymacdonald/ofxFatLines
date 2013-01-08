@@ -10,24 +10,27 @@ typedef ofFloatColor Color;
 static double vaserend_actual_PPI = 96.0;
 const double vaserend_standard_PPI = 111.94; //the PPI I used for calibration
 
+enum ofxFatLineJointType{
+    OFX_FATLINE_JOINT_MITER,
+    OFX_FATLINE_JOINT_BEVEL,
+    OFX_FATLINE_JOINT_ROUND
+};
+enum ofxFatLineCapType{
+    OFX_FATLINE_CAP_BUTT,
+    OFX_FATLINE_CAP_ROUND,
+    OFX_FATLINE_CAP_SQUARE,
+    OFX_FATLINE_CAP_RECT
+};
+
 struct ofxFatLineOptions
 {	//set the whole structure to 0 will give default options
-	char joint;
-		#define LJ_miter 0
-		#define LJ_bevel 1
-		#define LJ_round 2
-	char cap;
-		#define LC_butt   0
-		#define LC_round  1
-		#define LC_square 2
-		#define LC_rect   3 //unique to vase renderer
+	ofxFatLineJointType joint;
+	ofxFatLineCapType cap;
 	bool feather;
-		double feathering;
-		bool no_feather_at_cap;
-		bool no_feather_at_core;
+    double feathering;
+	bool no_feather_at_cap;
+	bool no_feather_at_core;
 	
-	//bool uniform_color;
-	//bool uniform_weight;
 };
 void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*,bool triangulation);
 void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*);
