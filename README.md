@@ -1,23 +1,72 @@
-ofxAddonTemplate
-================
+ofxFatLines
+===========
 
-OpenFrameworks addon template for easier development of structurally correct addons.
+Introduction
+------------
+openFrameworks addon for drawing nicely antialiased lines of any width.
+Based on VaseRenderer done by Chris Tsang,
+http://artgrammer.blogspot.com/2011/06/vaserendererdraft12.html
+http://www.codeproject.com/Articles/226569/Drawing-polylines-by-tessellation
 
-This template aids you as an addon author in creating an addon in a "proper" way. Doing this enables the openFrameworks community to easily use your addon, and having addons adhere to an established structure makes it easier for the openFrameworks developers to create features around contributed addons, like the addons index at ofxaddons.com.
+This addon is quite easy to use.
+Check the examples.
+It provides two functions:
+The following draws polylines.
 
-Download
---------
-The template contains all you need to start developing your addon. Download the template using the Download button on the right side of the github page. Unzip, rename and copy it to your addons folder.
-**PLEASE DON'T FORK** the addon template repo if you plan on creating your own addon, this will lead to confusion on the Github inheritance/forking graph, and you will unnecessarily have this repository's history in your own git repo.
+`void ofxFatLine( const ofVec2f* P,   //A pointer to a vector containing the anchor points of the polyline.
+	const ofFloatColor* C,			  //A pointer to a vector containing the color data for each anchor point.
+ 	const double* weight,			  //A pointer to a vector containing the width of the polyline at each anchor point.
+  	int size_of_P, 					  //Total number of anchor points.
+  	const ofxFatLineOptions* option,  //The options for the polyline. Read bellow.
+  	bool triangulation);		 	  //Mainly a debuging option, it renders the teselation of the polyline.`
+  	
+void ofxFatLine( const ofVec2f* P, const Color* C, const double* weight, int size_of_P, const ofxFatLineOptions* options);//The same as above but triangulation is false.`
+The following draws a line segment:
+`void ofxFatSegment(const ofVec2f& P1, const ofVec2f& P2, 	//Anchor points of the line segment.
+						  const Color& C1, const Color& C2, //Colors at each anchor point.
+						  double W1,double W2,				//Width at each anchor point.
+						  const ofxFatLineOptions* options) // the options.`
+ofxFatLineOptions 
+`struct ofxFatLineOptions{	//set the whole structure to 0 will give default options
+	char joint; 		//Joint type 
+						//miter 0
+						//bevel 1
+						//round 2
+	char cap;   		//Cap type
+						//butt   0
+						//round  1
+						//square 2
+						//rect   3
+	bool feather; 		// edge feather enable
+	double feathering;  //edge feathering amount 
+	bool no_feather_at_cap;
+	bool no_feather_at_core;
+	};
+`
 
-Further Steps
--------------
-`readme_author.md` contains instructions and explanations for you.
-`readme_deploy.md` is filled with a template for an informative README file you might want to use with your addon.
+Licence
+-------
+Please read licence.md
 
-Before announcing your addon to the world, you should remove this file (`readme.md`) and the author instructions, and rename `readme_deploy.md` to `README.md`.
-Also, if you have special instructions which people should see when submitting a pull request or open an issue in your addon repository, add a `CONTRIBUTING.md` file at the root of your repository. For more details, see https://github.com/blog/1184-contributing-guidelines
+Installation
+------------
+Clone into your openFrameworks/addons folder.
 
-This template reflects the help text found at http://ofxaddons.com/howto, and will be updated from time to time by the OF developers.
+Dependencies
+------------
 
-Thanks for listening, and happy coding!
+Compatibility
+------------
+Works with of 0073 onwards. Yet it should work with previous versions, probably down to 0071. In such case make sure that you have the ofxGui addon.
+
+Known issues
+------------
+-When wide lines overlap some artifacts might appear.
+
+Version history
+------------
+First version.!
+
+### Version 0.1 (08 JAN 2013): 
+
+

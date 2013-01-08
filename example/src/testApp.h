@@ -3,7 +3,7 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 
-#include "vase_renderer_draft1_2.h"
+#include "ofxFatLine.h"
 
 
 #define BUF_SIZE 20
@@ -22,28 +22,24 @@ public:
     void windowResized(int w, int h);
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
+    
     void sliderChange(float & f);
     void pointsChanged(int & n);
     void buttonPressed(bool & b);
-    void enable_glstates();
-    void disable_glstates();
-    void test_draw();
+
+    void enableCustomGLstates();
+    void disableCustomGLstates();
+    void testDraw();
     
-    void line_update();
+    void lineUpdate();
     
-    void line_update_skeleton();
-    void line_init( int N);
+    void lineInit( int N);
     
-    char get_joint_type();
-    char get_cap_type();
-    
-    
-    void drag_cb();
-    
-    bool bRedraw;
+    char getJointType();
+    char getCapType();
     
     
-    short curx,cury, lastx,lasty;
+    
 	short cur_drag; //index of point which is being draged currently
 	int tsize;
 

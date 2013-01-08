@@ -10,7 +10,7 @@ typedef ofFloatColor Color;
 static double vaserend_actual_PPI = 96.0;
 const double vaserend_standard_PPI = 111.94; //the PPI I used for calibration
 
-struct polyline_opt
+struct ofxFatLineOptions
 {	//set the whole structure to 0 will give default options
 	char joint;
 		#define LJ_miter 0
@@ -29,17 +29,17 @@ struct polyline_opt
 	//bool uniform_color;
 	//bool uniform_weight;
 };
-void polyline( const ofVec2f*, const Color*, const double*, int, const polyline_opt*,bool triangulation);
-void polyline( const ofVec2f*, const Color*, const double*, int, const polyline_opt*);
-inline void segment(  const ofVec2f& P1, const ofVec2f& P2, const Color& C1, const Color& C2,
-		double W1, double W2, const polyline_opt* options)
+void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*,bool triangulation);
+void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*);
+inline void ofxFatSegment(  const ofVec2f& P1, const ofVec2f& P2, const Color& C1, const Color& C2,
+		double W1, double W2, const ofxFatLineOptions* options)
 {
 	ofVec2f   AP[2];
 	Color  AC[2];
 	double AW[2];
 		AP[0] = P1; AC[0] = C1; AW[0] = W1;
 		AP[1] = P2; AC[1] = C2; AW[1] = W2;
-	polyline( AP, AC, AW, 2, options);
+	ofxFatLine( AP, AC, AW, 2, options);
 }
 
 #endif

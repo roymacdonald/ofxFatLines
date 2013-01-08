@@ -1,7 +1,7 @@
 #ifndef VASE_RENDERER_DRAFT1_2_CPP
 #define VASE_RENDERER_DRAFT1_2_CPP
 
-#include "vase_renderer_draft1_2.h"
+#include "ofxFatLine.h"
 #define VASE_RENDERER_DEBUG
 #ifdef VASE_RENDERER_DEBUG
 	#define DEBUG printf
@@ -13,7 +13,7 @@
 static void determine_t_r ( double w, double& t, double& R)
 {
 	//efficiency: can cache one set of w,t,R values
-	// i.e. when a polyline is of uniform thickness, the same w is passed in repeatedly
+	// i.e. when a ofxFatLine is of uniform thickness, the same w is passed in repeatedly
 	double f=w-static_cast<int>(w);
 	
 	/*   */if ( w>=0.0 && w<1.0) {
@@ -61,7 +61,7 @@ static float get_LJ_round_dangle(float t, float r)
 }
 //--------------------------------------------------------------
 static void make_T_R_C( const ofVec2f& P1, const ofVec2f& P2, ofVec2f* T, ofVec2f* R, ofVec2f* C,
-				double w, const polyline_opt& opt,
+				double w, const ofxFatLineOptions& opt,
 				double* rr, double* tt, float* dist,
 				bool seg_mode=false)
 {
@@ -75,7 +75,7 @@ static void make_T_R_C( const ofVec2f& P1, const ofVec2f& P2, ofVec2f* T, ofVec2
 		r *= opt.feathering;
 	else if ( seg_mode)
 	{
-		//TODO: handle correctly for hori/vert segments in a polyline
+		//TODO: handle correctly for hori/vert ofxFatSegments in a ofxFatLine
 		if ( negligible(DP.x)) {
 			if ( w>0.0 && w<=1.0) {
 				t=0.5; r=0.05;
@@ -113,7 +113,7 @@ static void same_side_of_line( ofVec2f& V, const ofVec2f& ref, const ofVec2f& a,
 	}
 }
 //--------------------------------------------------------------
-struct _st_polyline
+struct _st_ofxFatLine
 //the struct to hold info for anchor_late() to perform triangluation
 {
 	//for all joints
@@ -134,7 +134,7 @@ struct _st_polyline
 	//for degeneration case
 	bool degenT; //core degenerate
 	bool degenR; //fade degenerate
-	bool pre_full; //draw the preceding segment in full
+	bool pre_full; //draw the preceding ofxFatSegment in full
 	ofVec2f PT,PR;
 	float pt; //parameter at intersection
 	bool R_full_degen;
@@ -158,7 +158,7 @@ struct _st_anchor
 	double W[3];//weight
 	
 	ofVec2f cap_start, cap_end;
-	_st_polyline SL[3];
+	_st_ofxFatLine SL[3];
 	vertex_array_holder vah;
 	bool result; //returned by anchor()
 };
@@ -734,7 +734,7 @@ static void vah_N_knife_cut( vertex_array_holder& in, vertex_array_holder& out,
 }
 
 const float cri_core_adapt = 0.0001f;//--------------------------------------------------------------
-static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
+static void anchor_late( const ofVec2f* P, const Color* C, _st_ofxFatLine* SL,
 		vertex_array_holder& tris,
 		ofVec2f cap1, ofVec2f cap2)
 {	const int size_of_P = 3;
@@ -783,13 +783,13 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 	int normal_line_core_joint = 1; //0:dont draw, 1:draw, 2:outer only
 
 	//consider these as inline child functions
-	#define normal_first_segment \
+	#define normal_first_ofxFatSegment \
 			tris.push3( P3,  P2,  P1, \
 				  C[0],C[1],C[1]);\
 			tris.push3( P1,  P3,  P4, \
 				  C[1],C[0],C[0])
 	
-	#define normal_last_segment \
+	#define normal_last_ofxFatSegment \
 			tris.push3( P1,  P5,  P6, \
 				  C[1],C[1],C[2]);\
 			tris.push3( P1,  P6,  P7, \
@@ -826,7 +826,7 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 			annotate(P8,C[0],8);
 			annotate(P9,C[0],9);*/
 		tris.push3( P9,  P1,  P4,
-		     SL[0].cc1,C[1],C[0]); //first segment
+		     SL[0].cc1,C[1],C[0]); //first ofxFatSegment
 		tris.push3( P9,  P1,  P8,
 		     SL[0].cc1,C[1],SL[0].cc2);
 		
@@ -848,7 +848,7 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 			break;
 		}
 		
-		normal_last_segment;
+		normal_last_ofxFatSegment;
 		/*else // SL[1].degenT
 		{
 			ofVec2f P8,P9,P10;
@@ -905,11 +905,11 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 			normal_line_core_joint = 2;
 		else
 			normal_line_core_joint = 0;
-		normal_last_segment;
+		normal_last_ofxFatSegment;
 	}
 	else if ( SL[0].ajoin == 2)
 	{	//case 2
-		//first segment
+		//first ofxFatSegment
 		cautious_for_degenT
 	#undef cautious_for_degenT
 		ofVec2f P8 = SL[0].a2;
@@ -961,7 +961,7 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 			break;
 		}
 			
-		normal_last_segment;
+		normal_last_ofxFatSegment;
 	}
 	else
 	#endif //VASE_RENDERER_EXPER
@@ -988,9 +988,9 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 	{	//line core adapted for degenR
 		if ( SL[1].pre_full)
 		{
-			normal_last_segment;
+			normal_last_ofxFatSegment;
 
-			//special first segment
+			//special first ofxFatSegment
 			ofVec2f P9 = SL[1].PT;
 			tris.push3( P3,  P2,  P1,
 				  C[0],C[1],C[1]);
@@ -1001,9 +1001,9 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 		}
 		else
 		{
-			normal_first_segment;
+			normal_first_ofxFatSegment;
 			
-			//special last segment
+			//special last ofxFatSegment
 			ofVec2f P9 = SL[1].PT;
 			push_quad( tris,
 				  P5,  P1,  P6,  P9,
@@ -1019,10 +1019,10 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 	}
 	else
 	{
-		normal_first_segment;
-		normal_last_segment;
-	#undef normal_first_segment
-	#undef normal_last_segment
+		normal_first_ofxFatSegment;
+		normal_last_ofxFatSegment;
+	#undef normal_first_ofxFatSegment
+	#undef normal_last_ofxFatSegment
 	}
 	
 	if (normal_line_core_joint)
@@ -1274,7 +1274,7 @@ static void anchor_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 	}
 } //anchor_late
 //--------------------------------------------------------------
-static void segment_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
+static void ofxFatSegment_late( const ofVec2f* P, const Color* C, _st_ofxFatLine* SL,
 		vertex_array_holder& tris,
 		ofVec2f cap1, ofVec2f cap2)
 {
@@ -1408,7 +1408,7 @@ static void segment_late( const ofVec2f* P, const Color* C, _st_polyline* SL,
 	*/
 }
 //--------------------------------------------------------------
-static void segment_( const ofVec2f* inP, const Color* inC, const double* weight, const polyline_opt* options, 
+static void ofxFatSegment_( const ofVec2f* inP, const Color* inC, const double* weight, const ofxFatLineOptions* options, 
 		bool cap_first, bool cap_last, char last_cap_type=-1)
 {
 	if ( !inP || !inC || !weight) return;
@@ -1416,7 +1416,7 @@ static void segment_( const ofVec2f* inP, const Color* inC, const double* weight
 	ofVec2f  P[2]; P[0]=inP[0]; P[1]=inP[1];
 	Color C[2]; C[0]=inC[0]; C[1]=inC[1];
 	
-	polyline_opt opt={0};
+	ofxFatLineOptions opt={0};
 	if ( options)
 		opt = (*options);
 	
@@ -1428,7 +1428,7 @@ static void segment_( const ofVec2f* inP, const Color* inC, const double* weight
 	bool varying_weight = !(weight[0]==weight[1]);
 	
 	ofVec2f cap_start, cap_end;
-	_st_polyline SL[2];
+	_st_ofxFatLine SL[2];
 	
 	for ( int i=0; i<2; i++)
 	{
@@ -1491,15 +1491,15 @@ static void segment_( const ofVec2f* inP, const Color* inC, const double* weight
 	}
 	
 	{	vertex_array_holder tris;
-		segment_late( P,C,SL, tris,cap_start,cap_end);
+		ofxFatSegment_late( P,C,SL, tris,cap_start,cap_end);
 		tris.draw();
 	}
 }
 //--------------------------------------------------------------
-static int anchor( _st_anchor& SA, const polyline_opt* options,
+static int anchor( _st_anchor& SA, const ofxFatLineOptions* options,
 		bool cap_first, bool cap_last)
 {
-	polyline_opt opt={0};
+	ofxFatLineOptions opt={0};
 	if ( options)
 		opt = (*options);
 	
@@ -1507,7 +1507,7 @@ static int anchor( _st_anchor& SA, const polyline_opt* options,
 	Color* C = SA.C;
 	double* weight = SA.W;
 	
-	_st_polyline* SL = SA.SL;
+	_st_ofxFatLine* SL = SA.SL;
 	SA.vah.set_gl_draw_mode(GL_TRIANGLES);
 	SA.cap_start = ofVec2f();
 	SA.cap_end = ofVec2f();
@@ -1524,11 +1524,11 @@ static int anchor( _st_anchor& SA, const polyline_opt* options,
 	const double cri_approx=1.6;
 	if ( weight[0] < cri_approx && weight[1] < cri_approx && weight[2] < cri_approx)
 	{
-		segment_( P,C,weight,&opt, cap_first,false, opt.joint==LJ_round?LC_round:LC_butt);
+		ofxFatSegment_( P,C,weight,&opt, cap_first,false, opt.joint==LJ_round?LC_round:LC_butt);
 		{
 			char ori_cap = opt.cap;
 			opt.cap = opt.joint==LJ_round?LC_round:LC_butt;
-			segment_( &P[1],&C[1],&weight[1],&opt, false,cap_last, ori_cap);
+			ofxFatSegment_( &P[1],&C[1],&weight[1],&opt, false,cap_last, ori_cap);
 		}
 		return 0;
 	}
@@ -1648,7 +1648,7 @@ static int anchor( _st_anchor& SA, const polyline_opt* options,
 		
 		{	//2nd to 2nd last point
 			
-			//find the angle between the 2 line segments
+			//find the angle between the 2 line ofxFatSegments
 			ofVec2f ln1,ln2, V;
 			ln1 = P_cur - P_las;
 			ln2 = P_nxt - P_cur;
@@ -1739,13 +1739,13 @@ static int anchor( _st_anchor& SA, const polyline_opt* options,
 				opt.no_feather_at_cap=true;
 				if ( pre_full)
 				{
-					segment_( P,C,weight,&opt, true,cap_last, opt.joint==LJ_round?LC_round:LC_butt);
+					ofxFatSegment_( P,C,weight,&opt, true,cap_last, opt.joint==LJ_round?LC_round:LC_butt);
 				}
 				else
 				{
 					char ori_cap = opt.cap;
 					opt.cap = opt.joint==LJ_round?LC_round:LC_butt;
-					segment_( &P[1],&C[1],&weight[1],&opt, true,cap_last, ori_cap);
+					ofxFatSegment_( &P[1],&C[1],&weight[1],&opt, true,cap_last, ori_cap);
 				}
 				return 0;
 			}
@@ -1857,7 +1857,7 @@ void anchor_weld( const _st_anchor& SA, _st_anchor& SB)
 		ofVec2f P1r[2],P2r[2],P3r[2],P4r[2];
 		for ( int j=0; j<2; j++)
 		{
-			{	const _st_polyline* SL;
+			{	const _st_ofxFatLine* SL;
 				ofVec2f P_0, P_1;
 				
 				if ( j==0)
@@ -2011,12 +2011,12 @@ public:
 };
 #endif //VASE_RENDERER_EXPER
 
-void polyline(
-	const ofVec2f* P,       //pointer to array of point of a polyline
+void ofxFatLine(
+	const ofVec2f* P,       //pointer to array of point of a ofxFatLine
 	const Color* C,      //array of color
 	const double* weight,//array of weight
 	int size_of_P, //size of the buffer P
-	const polyline_opt* options, //extra options
+	const ofxFatLineOptions* options, //extra options
 	bool triangulation)  //if true, draw triangulation
 {
 	ofVec2f  PP[3];
@@ -2036,7 +2036,7 @@ void polyline(
 	
 	if ( size_of_P == 2)
 	{
-		segment_( P,C,weight,options, true,true);
+		ofxFatSegment_( P,C,weight,options, true,true);
 		return;
 	}
 	
@@ -2119,9 +2119,9 @@ void polyline(
 	#endif //VASE_RENDERER_EXPER
 }
 
-void polyline( const ofVec2f* P, const Color* C, const double* weight, int size_of_P, const polyline_opt* options)
+void ofxFatLine( const ofVec2f* P, const Color* C, const double* weight, int size_of_P, const ofxFatLineOptions* options)
 {
-	polyline(P,C,weight,size_of_P,options,false);
+	ofxFatLine(P,C,weight,size_of_P,options,false);
 }
 
 #undef DEBUG

@@ -2,12 +2,9 @@
 
 //--------------------------------------------------------------
 void testApp::setup(){
-	curx=0; cury=0; lastx=0; lasty=0;
 	cur_drag=-1;
 	tsize=0;
     size_of_AP=0;
-    
-    bRedraw=true;
     
     gui.setup("panel");
     gui.add(start_weight.setup("start weight", 8, 0.02, 20));
@@ -50,11 +47,10 @@ void testApp::setup(){
     triangulate.addListener(this, &testApp::buttonPressed);
     np.addListener(this, &testApp::pointsChanged);
         
-    line_init(4);
+    lineInit(4);
 }
 //--------------------------------------------------------------
-void testApp::line_update()
-{
+void testApp::lineUpdate(){
 	ofFloatColor cc[3];
 	ofFloatColor grey;
     grey.set(.4,.4,.4, 1);
@@ -82,17 +78,7 @@ void testApp::line_update()
 	}
 }
 //--------------------------------------------------------------
-void testApp::line_update_skeleton()
-{
-	ofFloatColor red;
-    red.set(ofFloatColor::red);
-	for ( int i=0; i<size_of_AP; i++){
-		AC[i] = red;
-		Aw[i] = 1.0;
-	}
-}
-//--------------------------------------------------------------
-void testApp::line_init( int N)
+void testApp::lineInit( int N)
 {
 	switch (N)
 	{
@@ -136,11 +122,11 @@ void testApp::line_init( int N)
             size_of_AP = 6;
             break;
 	}
-	line_update();
+	lineUpdate();
     tsize = size_of_AP; 
 }
 //--------------------------------------------------------------
-char testApp::get_joint_type()
+char testApp::getJointType()
 {
 	if ( jt_miter)
 		return LJ_miter;
@@ -152,7 +138,7 @@ char testApp::get_joint_type()
 		return 0;
 }
 //--------------------------------------------------------------
-char testApp::get_cap_type()
+char testApp::getCapType()
 {
 	if ( jc_butt)
 		return LC_butt;
@@ -166,12 +152,7 @@ char testApp::get_cap_type()
 		return 0;
 }
 //--------------------------------------------------------------
-void testApp::drag_cb(){
-    bRedraw = true;
-}
-
-//--------------------------------------------------------------
-void testApp::enable_glstates()
+void testApp::enableCustomGLstates()
 {
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_COLOR_ARRAY);
@@ -184,7 +165,7 @@ void testApp::enable_glstates()
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 //--------------------------------------------------------------
-void testApp::disable_glstates()
+void testApp::disableCustomGLstates()
 {
 	glDisableClientState(GL_VERTEX_ARRAY);
 	glDisableClientState(GL_COLOR_ARRAY);
@@ -192,19 +173,15 @@ void testApp::disable_glstates()
 
 //--------------------------------------------------------------
 void testApp::sliderChange(float & f){
-    bRedraw = true;
-    line_update();
+    lineUpdate();
 }
 //--------------------------------------------------------------
 void testApp::pointsChanged(int & n){
-    line_init(n);
-	bRedraw = true;
-    
+    lineInit(n);
 }
 //--------------------------------------------------------------
 void testApp::buttonPressed(bool & b){
-    bRedraw = true;
-    line_update();
+    lineUpdate();
 }
 //--------------------------------------------------------------
 void testApp::update(){
@@ -215,123 +192,35 @@ void testApp::update(){
 void testApp::draw(){
     ofBackground(255);
     ofFloatColor c (1,0,0,1);
-    if (bRedraw) {
         ofPushMatrix();
         ofPushView();
-	//	glMatrixMode(GL_PROJECTION);
-  //      glLoadIdentity();
-       // glOrtho( 0, ofGetWidth(),ofGetHeight(),0,0.0f,100.0f);
         glClearColor( 1.0,1.0,1.0,1.0f);
-//glClearDepth( 0.0f);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	test_draw();
-       // bRedraw = false;
-}
+	testDraw();
+ 
+
     ofPopView();
     ofPopMatrix();
     gui.draw();
 }
 //--------------------------------------------------------------
-void testApp::test_draw(){
-	enable_glstates();
+void testApp::testDraw(){
+	enableCustomGLstates();
 	
-	polyline_opt opt={0};
+	ofxFatLineOptions opt={0};
 	opt.feather    = feather;
 	opt.feathering = feathering;
 	opt.no_feather_at_cap = no_feather_at_cap;
 	opt.no_feather_at_core = no_feather_at_core;
-	opt.cap   = get_cap_type();
-    opt.joint =get_joint_type();
-	//float start_weight =0;
-	for ( int i=0; i<20; i++)
-	{
-		ofVec2f  P1 (5+29.7*i, 187);
-		ofVec2f  P2 (35+29.7*i, 8);
-		Color C1 (0,0,0, 1);
-		Color C2 = C1;
-		double W1= 0.3*(i+1) + start_weight;
-		double W2= W1;
-		if ( colored)
-		{
-			Color cc1 ( 1.0,0.0,0.5, 1.0);
-			C1 = cc1;
-			Color cc2 ( 0.5,0.0,1.0, 1.0);
-			C2 = cc2;
-		}
-		if ( alphaed)
-		{
-			C1.a = 0.5f;
-			C2.a = 0.5f;
-		}
-		if ( weighted)
-		{
-			W1 = 0.1;
-		}
-		if ( opt.cap != LC_butt)
-		{
-			double end_weight = 0.3*(20) + start_weight;
-			P1.y -= end_weight*0.5;
-			P2.y += end_weight*0.5;
-		}
-		segment(P1, P2,       //coordinates
-                C1, C2,       //colors
-                W1, W2,       //weights
-                &opt);        //extra options
-	}
+	opt.cap   = getCapType();
+    opt.joint =getJointType();
 	
-	for ( double ag=0, i=0; ag<2*PI-0.1; ag+=PI/12, i+=1)
-	{
-		double r1 = 0.0;
-		double r2 = 90.0;
-		if ( !weighted)
-			r1 = 30.0;
-		if ( opt.cap != LC_butt)
-		{
-			double end_weight = 0.3*(12) + start_weight;
-			r2 -= end_weight*0.5;
-		}
-        
-		
-		double tx2=r2*cos(ag);
-		double ty2=r2*sin(ag);
-		double tx1=r1*cos(ag);
-		double ty1=r1*sin(ag);
-		double Ox = 120;
-		double Oy = 194+97;
-		
-		ofVec2f  P1 (Ox+tx1,Oy-ty1);
-		ofVec2f  P2 (Ox+tx2,Oy-ty2);
-		Color C1 ( 0,0,0, 1);
-		Color C2 = C1;
-		double W1= 0.3*(i+1) + start_weight;
-		double W2= W1;
-		if ( colored)
-		{
-			Color cc1 ( 1.0,0.0,0.5, 1.0);
-			C1 = cc1;
-			Color cc2 ( 0.5,0.0,1.0, 1.0);
-			C2 = cc2;
-		}
-		if ( alphaed)
-		{
-			C1.a = 0.5f;
-			C2.a = 0.5f;
-		}
-		if ( weighted)
-		{
-			W1 = 0.1;
-		}
-		segment(P1, P2,       //coordinates
-                C1, C2,       //colors
-                W1, W2,       //weights
-                &opt);        //extra options
-	}
-	polyline(AP, AC, Aw,size_of_AP, &opt, triangulate);
-	disable_glstates();
+	ofxFatLine(AP, AC, Aw,size_of_AP, &opt, triangulate);
+	disableCustomGLstates();
 }
 
 //--------------------------------------------------------------
@@ -345,10 +234,7 @@ void testApp::mouseDragged(int x, int y, int button){
         if ( cur_drag >=0 && cur_drag< tsize){
             AP[cur_drag].x=x;
             AP[cur_drag].y=y;
-            bRedraw = true;
-        }
-            lastx=x;
-    lasty=y;
+         }
 }
 
 //--------------------------------------------------------------
@@ -370,18 +256,9 @@ void testApp::mousePressed(int x, int y, int button){
 
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button){}
-
 //--------------------------------------------------------------
-void testApp::windowResized(int w, int h){
-    
-}
-
+void testApp::windowResized(int w, int h){}
 //--------------------------------------------------------------
-void testApp::gotMessage(ofMessage msg){
-    
-}
-
+void testApp::gotMessage(ofMessage msg){}
 //--------------------------------------------------------------
-void testApp::dragEvent(ofDragInfo dragInfo){ 
-    
-}
+void testApp::dragEvent(ofDragInfo dragInfo){}

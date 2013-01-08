@@ -96,8 +96,8 @@
 		B0B5D23F169CBB79002DF3BA /* tinyxmlparser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tinyxmlparser.cpp; sourceTree = "<group>"; };
 		B0B5D241169CBB79002DF3BA /* ofxXmlSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ofxXmlSettings.cpp; sourceTree = "<group>"; };
 		B0B5D242169CBB79002DF3BA /* ofxXmlSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxXmlSettings.h; sourceTree = "<group>"; };
-		B0B5D2BA169CC17B002DF3BA /* vase_renderer_draft1_2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vase_renderer_draft1_2.cpp; sourceTree = "<group>"; };
-		B0B5D2BB169CC17B002DF3BA /* vase_renderer_draft1_2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vase_renderer_draft1_2.h; sourceTree = "<group>"; };
+		B0B5D2BA169CC17B002DF3BA /* ofxFatLine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ofxFatLine.cpp; sourceTree = "<group>"; };
+		B0B5D2BB169CC17B002DF3BA /* ofxFatLine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxFatLine.h; sourceTree = "<group>"; };
 		B0B5D2BC169CC17B002DF3BA /* vector_operations.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vector_operations.h; sourceTree = "<group>"; };
 		B0B5D2BD169CC17B002DF3BA /* vertex_array_holder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vertex_array_holder.h; sourceTree = "<group>"; };
 		B0B5D2DE169CC182002DF3BA /* ofOscParameter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofOscParameter.h; sourceTree = "<group>"; };
@@ -260,8 +260,8 @@
 		B0B5D2B9169CC17B002DF3BA /* src */ = {
 			isa = PBXGroup;
 			children = (
-				B0B5D2BA169CC17B002DF3BA /* vase_renderer_draft1_2.cpp */,
-				B0B5D2BB169CC17B002DF3BA /* vase_renderer_draft1_2.h */,
+				B0B5D2BA169CC17B002DF3BA /* ofxFatLine.cpp */,
+				B0B5D2BB169CC17B002DF3BA /* ofxFatLine.h */,
 				B0B5D2BC169CC17B002DF3BA /* vector_operations.h */,
 				B0B5D2BD169CC17B002DF3BA /* vertex_array_holder.h */,
 			);
