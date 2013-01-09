@@ -5,7 +5,7 @@
 #include "vector_operations.h"
 #include "vertex_array_holder.h"
 
-typedef ofFloatColor Color;
+typedef ofFloatColor ofFloatColor;
 
 static double vaserend_actual_PPI = 96.0;
 const double vaserend_standard_PPI = 111.94; //the PPI I used for calibration
@@ -32,13 +32,13 @@ struct ofxFatLineOptions
 	bool no_feather_at_core;
 	
 };
-void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*,bool triangulation);
-void ofxFatLine( const ofVec2f*, const Color*, const double*, int, const ofxFatLineOptions*);
-inline void ofxFatSegment(  const ofVec2f& P1, const ofVec2f& P2, const Color& C1, const Color& C2,
+void ofxFatLine(const ofVec2f* P, const ofFloatColor* C, const double* weight, int size_of_P, const ofxFatLineOptions* options, bool triangulation);
+void ofxFatLine(const ofVec2f* P, const ofFloatColor* C, const double* weight, int size_of_P, const ofxFatLineOptions* options);
+inline void ofxFatSegment(  const ofVec2f& P1, const ofVec2f& P2, const ofFloatColor& C1, const ofFloatColor& C2,
 		double W1, double W2, const ofxFatLineOptions* options)
 {
 	ofVec2f   AP[2];
-	Color  AC[2];
+	ofFloatColor  AC[2];
 	double AW[2];
 		AP[0] = P1; AC[0] = C1; AW[0] = W1;
 		AP[1] = P2; AC[1] = C2; AW[1] = W2;

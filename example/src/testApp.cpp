@@ -126,30 +126,30 @@ void testApp::lineInit( int N)
     tsize = size_of_AP; 
 }
 //--------------------------------------------------------------
-char testApp::getJointType()
+ofxFatLineJointType testApp::getJointType()
 {
 	if ( jt_miter)
-		return LJ_miter;
+		return OFX_FATLINE_JOINT_MITER;
 	else if ( jt_bevel)
-		return LJ_bevel;
+		return OFX_FATLINE_JOINT_BEVEL;
 	else if ( jt_round)
-		return LJ_round;
+		return OFX_FATLINE_JOINT_ROUND;
 	else
-		return 0;
+		return OFX_FATLINE_JOINT_MITER;
 }
 //--------------------------------------------------------------
-char testApp::getCapType()
+ofxFatLineCapType testApp::getCapType()
 {
 	if ( jc_butt)
-		return LC_butt;
+		return OFX_FATLINE_CAP_BUTT;
 	else if ( jc_round)
-		return LC_round;
+		return OFX_FATLINE_CAP_ROUND;
 	else if ( jc_square)
-		return LC_square;
+		return OFX_FATLINE_CAP_SQUARE;
 	else if ( jc_rect)
-		return LC_rect;
+		return OFX_FATLINE_CAP_RECT;
 	else
-		return 0;
+		return OFX_FATLINE_CAP_BUTT;
 }
 //--------------------------------------------------------------
 void testApp::enableCustomGLstates()
@@ -211,7 +211,7 @@ void testApp::draw(){
 void testApp::testDraw(){
 	enableCustomGLstates();
 	
-	ofxFatLineOptions opt={0};
+	ofxFatLineOptions opt;
 	opt.feather    = feather;
 	opt.feathering = feathering;
 	opt.no_feather_at_cap = no_feather_at_cap;
@@ -219,7 +219,7 @@ void testApp::testDraw(){
 	opt.cap   = getCapType();
     opt.joint =getJointType();
 	
-	ofxFatLine(AP, AC, Aw,size_of_AP, &opt, triangulate);
+	ofxFatLine(AP, AC, Aw,size_of_AP, &opt);//, triangulate);
 	disableCustomGLstates();
 }
 

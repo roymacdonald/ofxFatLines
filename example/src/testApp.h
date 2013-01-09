@@ -35,8 +35,8 @@ public:
     
     void lineInit( int N);
     
-    char getJointType();
-    char getCapType();
+    ofxFatLineJointType getJointType();
+    ofxFatLineCapType getCapType();
     
     
     
