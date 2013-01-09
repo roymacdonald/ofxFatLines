@@ -21,7 +21,7 @@ void testApp::setup(){
     gui.add(jc_square.setup("square", false));
     gui.add(jc_rect.setup("rect", false));
     gui.add(np.setup("Num Points", 3, 2, 6));
-
+    
     gui.add(colored.setup("colored", true));
     gui.add(alphaed.setup("alphaed", true));
     gui.add(weighted.setup("weighted", false));
@@ -46,7 +46,7 @@ void testApp::setup(){
     skeleton.addListener(this, &testApp::buttonPressed);
     triangulate.addListener(this, &testApp::buttonPressed);
     np.addListener(this, &testApp::pointsChanged);
-        
+    
     lineInit(4);
 }
 //--------------------------------------------------------------
@@ -156,13 +156,14 @@ void testApp::enableCustomGLstates()
 {
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_COLOR_ARRAY);
-	
-	glDisableClientState(GL_EDGE_FLAG_ARRAY);
-	glDisableClientState(GL_FOG_COORD_ARRAY);
-	glDisableClientState(GL_INDEX_ARRAY);
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_SECONDARY_COLOR_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    /*	
+     glDisableClientState(GL_EDGE_FLAG_ARRAY);
+     glDisableClientState(GL_FOG_COORD_ARRAY);
+     glDisableClientState(GL_INDEX_ARRAY);
+     glDisableClientState(GL_NORMAL_ARRAY);
+     glDisableClientState(GL_SECONDARY_COLOR_ARRAY);
+     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+     //*/
 }
 //--------------------------------------------------------------
 void testApp::disableCustomGLstates()
@@ -185,27 +186,31 @@ void testApp::buttonPressed(bool & b){
 }
 //--------------------------------------------------------------
 void testApp::update(){
-
+    
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
     ofBackground(255);
     ofFloatColor c (1,0,0,1);
-        ofPushMatrix();
-        ofPushView();
-        glClearColor( 1.0,1.0,1.0,1.0f);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    ofPushMatrix();
+    ofPushView();
+    glClearColor( 1.0,1.0,1.0,1.0f);
+    glEnable(GL_BLEND);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	testDraw();
- 
-
+    
+    
     ofPopView();
     ofPopMatrix();
     gui.draw();
+    ofPushStyle();
+    ofSetColor(0);
+    ofDrawBitmapString(ofToString(ofGetFrameRate()), 100, ofGetHeight()-50);
+    ofPopStyle();
 }
 //--------------------------------------------------------------
 void testApp::testDraw(){
@@ -219,7 +224,7 @@ void testApp::testDraw(){
 	opt.cap   = getCapType();
     opt.joint =getJointType();
 	
-	ofxFatLine(AP, AC, Aw,size_of_AP, &opt);//, triangulate);
+	ofxFatLine(AP, AC, Aw,size_of_AP, &opt, triangulate);
 	disableCustomGLstates();
 }
 
@@ -231,10 +236,10 @@ void testApp::keyReleased(int key){}
 void testApp::mouseMoved(int x, int y){}
 //--------------------------------------------------------------
 void testApp::mouseDragged(int x, int y, int button){
-        if ( cur_drag >=0 && cur_drag< tsize){
-            AP[cur_drag].x=x;
-            AP[cur_drag].y=y;
-         }
+    if ( cur_drag >=0 && cur_drag< tsize){
+        AP[cur_drag].x=x;
+        AP[cur_drag].y=y;
+    }
 }
 
 //--------------------------------------------------------------

@@ -11,6 +11,71 @@
 #endif
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
+struct _st_knife_cut{
+	ofVec2f T1[4]; //retained polygon, also serves as input triangle
+	ofFloatColor C1[4]; //
+	
+	ofVec2f T2[4]; //cut away polygon
+	ofFloatColor C2[4]; //
+	
+	int T1c, T2c; //count of T1 & T2
+    //must be 0,3 or 4
+};
+//--------------------------------------------------------------
+struct _st_ofxFatLine
+//the struct to hold info for anchor_late() to perform triangluation
+{
+	//for all joints
+	ofVec2f vP; //vector to intersection point
+	ofVec2f vR; //fading vector at sharp end
+    //all vP,vR are outward
+	
+	//for djoint==OFX_FATLINE_JOINT_BEVEL
+	ofVec2f T; //core thickness of a line
+	ofVec2f R; //fading edge of a line
+	ofVec2f bR; //out stepping vector, same direction as cap
+	ofVec2f T1,R1; //alternate vectors, same direction as T21
+    //all T,R,T1,R1 are outward
+	
+	//for djoint==OFX_FATLINE_JOINT_ROUND
+	float t,r;
+	
+	//for degeneration case
+	bool degenT; //core degenerate
+	bool degenR; //fade degenerate
+	bool pre_full; //draw the preceding ofxFatSegment in full
+	ofVec2f PT,PR;
+	float pt; //parameter at intersection
+	bool R_full_degen;
+	
+	//
+	char djoint; //determined joint
+    // e.g. originally a joint is OFX_FATLINE_JOINT_MITER. but it is smaller than critical angle,
+    //   should then set djoint to OFX_FATLINE_JOINT_BEVEL
+	
+	//for anchors joining
+	char ajoin; //join between anchors
+	ofVec2f a1,a2,las_PT;
+	ofFloatColor cc1,cc2;
+};
+//--------------------------------------------------------------
+struct _st_anchor
+//the struct to hold memory for the working of anchor()
+{
+	ofVec2f  P[3]; //point
+	ofFloatColor C[3]; //color
+	double W[3];//weight
+	
+	ofVec2f cap_start, cap_end;
+	_st_ofxFatLine SL[3];
+	vertex_array_holder vah;
+	bool result; //returned by anchor()
+};
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+
 static void determine_t_r ( double w, double& t, double& R)
 {
 	//efficiency: can cache one set of w,t,R values
@@ -114,61 +179,11 @@ static void same_side_of_line( ofVec2f& V, const ofVec2f& ref, const ofVec2f& a,
 	}
 }
 //--------------------------------------------------------------
-struct _st_ofxFatLine
-//the struct to hold info for anchor_late() to perform triangluation
-{
-	//for all joints
-	ofVec2f vP; //vector to intersection point
-	ofVec2f vR; //fading vector at sharp end
-		//all vP,vR are outward
-	
-	//for djoint==OFX_FATLINE_JOINT_BEVEL
-	ofVec2f T; //core thickness of a line
-	ofVec2f R; //fading edge of a line
-	ofVec2f bR; //out stepping vector, same direction as cap
-	ofVec2f T1,R1; //alternate vectors, same direction as T21
-		//all T,R,T1,R1 are outward
-	
-	//for djoint==OFX_FATLINE_JOINT_ROUND
-	float t,r;
-	
-	//for degeneration case
-	bool degenT; //core degenerate
-	bool degenR; //fade degenerate
-	bool pre_full; //draw the preceding ofxFatSegment in full
-	ofVec2f PT,PR;
-	float pt; //parameter at intersection
-	bool R_full_degen;
-	
-	//
-	char djoint; //determined joint
-			// e.g. originally a joint is OFX_FATLINE_JOINT_MITER. but it is smaller than critical angle,
-			//   should then set djoint to OFX_FATLINE_JOINT_BEVEL
-	
-	//for anchors joining
-	char ajoin; //join between anchors
-	ofVec2f a1,a2,las_PT;
-	ofFloatColor cc1,cc2;
-};
-
-struct _st_anchor
-//the struct to hold memory for the working of anchor()
-{
-	ofVec2f  P[3]; //point
-	ofFloatColor C[3]; //color
-	double W[3];//weight
-	
-	ofVec2f cap_start, cap_end;
-	_st_ofxFatLine SL[3];
-	vertex_array_holder vah;
-	bool result; //returned by anchor()
-};
-//--------------------------------------------------------------
 static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 		const ofFloatColor& C, const ofFloatColor& C2,
 		float dangle, float angle1, float angle2,
 		float r, float r2, bool ignor_ends,
-		ofVec2f* apparent_P)	//(apparent center) center of fan
+                      ofVec2f* apparent_P){	//(apparent center) center of fan
 //draw the inner arc between angle1 and angle2 with dangle at each step.
 // -the arc has thickness, r is the outer radius and r2 is the inner radius,
 //    with color C and C2 respectively.
@@ -181,35 +196,27 @@ static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 //    apparent_P is then the apparent origin of the pie.
 // -the result is pushed to hold, in form of a triangle strip
 // -an inner arc is an arc which is always shorter than or equal to a half circumference
-{
+
 	bool incremental=true;
 	
-	if ( angle2 > angle1)
-	{
-		if ( angle2-angle1>PI)
-		{
+	if ( angle2 > angle1){
+		if ( angle2-angle1>PI){
 			angle2=angle2-2*PI;
 		}
 	}
-	else
-	{
-		if ( angle1-angle2>PI)
-		{
+	else{
+		if ( angle1-angle2>PI){
 			angle1=angle1-2*PI;
 		}
 	}
-	if ( angle1>angle2)
-	{
+	if ( angle1>angle2){
 		incremental = false; //means decremental
 	}
 	
-	if ( incremental)
-	{
-		if ( ignor_ends)
-		{
+	if ( incremental){
+		if ( ignor_ends){
 			int i=0;
-			for ( float a=angle1+dangle; a<angle2; a+=dangle, i++)
-			{
+			for ( float a=angle1+dangle; a<angle2; a+=dangle, i++){
 				float x=cos(a);
 				float y=sin(a);
 				
@@ -229,11 +236,9 @@ static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 			}
 			//DEBUG( "steps=%d ",i); fflush(stdout);
 		}
-		else
-		{
+		else{
 			int i=0;
-			for ( float a=angle1; ; a+=dangle, i++)
-			{
+			for ( float a=angle1; ; a+=dangle, i++){
 				if ( a>angle2)
 					a=angle2;
 				
@@ -252,13 +257,10 @@ static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 			}
 		}
 	}
-	else //decremental
-	{
-		if ( ignor_ends)
-		{
+	else{ //decremental
+		if ( ignor_ends){
 			int i=0;
-			for ( float a=angle1-dangle; a>angle2; a-=dangle, i++)
-			{
+			for ( float a=angle1-dangle; a>angle2; a-=dangle, i++){
 				float x=cos(a);
 				float y=sin(a);
 				
@@ -270,11 +272,9 @@ static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 				}
 			}
 		}
-		else
-		{
+		else{
 			int i=0;
-			for ( float a=angle1; ; a-=dangle, i++)
-			{
+			for ( float a=angle1; ; a-=dangle, i++){
 				if ( a<angle2)
 					a=angle2;
 				
@@ -294,7 +294,8 @@ static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
 			}
 		}
 	}
-}//--------------------------------------------------------------
+}
+//--------------------------------------------------------------
 static void vectors_to_arc( vertex_array_holder& hold, const ofVec2f& P,
 		const ofFloatColor& C, const ofFloatColor& C2,
 		ofVec2f A, ofVec2f B, float dangle, float r, float r2, bool ignor_ends,
@@ -314,14 +315,11 @@ static void vectors_to_arc( vertex_array_holder& hold, const ofVec2f& P,
 	if ( A.y>0){ angle1=2*PI-angle1;}
 	if ( B.y>0){ angle2=2*PI-angle2;}
 	
-	//DEBUG( "steps=%d ",int((angle2-angle1)/den*r));
-
 	inner_arc( hold, P, C,C2, dangle,angle1,angle2, r,r2, ignor_ends, apparent_P);
 }
 
 #ifdef VASE_RENDERER_DEBUG//--------------------------------------------------------------
-static void annotate( const ofVec2f& P, ofFloatColor cc, int I=-1)
-{
+static void annotate( const ofVec2f& P, ofFloatColor cc, int I=-1){
 	static int i=0;
 	if ( I != -1) i=I;
 	
@@ -333,19 +331,16 @@ static void annotate( const ofVec2f& P, ofFloatColor cc, int I=-1)
 		glVertex2f(P.x+4,P.y-4);
 	glEnd();
 	
-	char str[10];
-	sprintf(str,"%d",i);
-	//gl_font( FL_HELVETICA, 8);
-	ofDrawBitmapString( str,float(P.x+2),float(P.y));
+	ofDrawBitmapString( ofToString(i),float(P.x+2),float(P.y));
 	i++;
-}//--------------------------------------------------------------
-static void annotate( const ofVec2f& P)
-{
+}
+//--------------------------------------------------------------
+static void annotate( const ofVec2f& P){
 	ofFloatColor cc;
 	annotate(P,cc);
-}//--------------------------------------------------------------
-static void draw_vector( const ofVec2f& P, const ofVec2f& V, const char* name)
-{
+}
+//--------------------------------------------------------------
+static void draw_vector( const ofVec2f& P, const ofVec2f& V, const char* name){
 	ofVec2f P2 = P+V;
 	glBegin(GL_LINES);
 		glColor3f(1,0,0);
@@ -353,16 +348,14 @@ static void draw_vector( const ofVec2f& P, const ofVec2f& V, const char* name)
 		glColor3f(1,0.9,0.9);
 		glVertex2f(P2.x,P2.y);
 	glEnd();
-	if ( name)
+	if (name)
 	{
 		glColor3f(0,0,0);
-	//	gl_font( FL_HELVETICA, 8);
-	//	gl_draw( name,float(P2.x+2),float(P2.y));
-        ofDrawBitmapString(name , float(P2.x+2),float(P2.y));
+	    ofDrawBitmapString(name , float(P2.x+2),float(P2.y));
 	}
 }
-void draw_triangles_outline( vertex_array_holder& tris)
-{
+//--------------------------------------------------------------
+void draw_triangles_outline( vertex_array_holder& tris){
 	for ( int i=0, count=tris.get_count(); i<count; i++)
 	{
 		ofVec2f P1 = tris.get(i); i++;
@@ -377,11 +370,6 @@ void draw_triangles_outline( vertex_array_holder& tris)
 			glVertex2f( P1.x,P1.y);
 		glEnd();
 	}
-}//--------------------------------------------------------------
-static void printpoint( const ofVec2f& P, const char* name)
-{
-	DEBUG("%s(%.4f,%.4f) ",name,P.x,P.y);
-	fflush(stdout);
 }
 #endif
 /*//--------------------------------------------------------------
@@ -447,17 +435,7 @@ static void push_quad( vertex_array_holder& core,
 	}
 }
 
-struct _st_knife_cut
-{
-	ofVec2f T1[4]; //retained polygon, also serves as input triangle
-	ofFloatColor C1[4]; //
-	
-	ofVec2f T2[4]; //cut away polygon
-	ofFloatColor C2[4]; //
-	
-	int T1c, T2c; //count of T1 & T2
-		//must be 0,3 or 4
-};//--------------------------------------------------------------
+//--------------------------------------------------------------
 static int triangle_knife_cut( const ofVec2f& kn1, const ofVec2f& kn2, const ofVec2f& kn_out, //knife
 			       const ofFloatColor* kC0, const ofFloatColor* kC1, //color of knife
 		_st_knife_cut& ST)//will modify for output
@@ -733,12 +711,13 @@ static void vah_N_knife_cut( vertex_array_holder& in, vertex_array_holder& out,
 		}
 	}
 }
-
-const float cri_core_adapt = 0.0001f;//--------------------------------------------------------------
+//--------------------------------------------------------------
+const float cri_core_adapt = 0.0001f;
+//--------------------------------------------------------------
 static void anchor_late( const ofVec2f* P, const ofFloatColor* C, _st_ofxFatLine* SL,
 		vertex_array_holder& tris,
-		ofVec2f cap1, ofVec2f cap2)
-{	const int size_of_P = 3;
+		ofVec2f cap1, ofVec2f cap2){	
+    const int size_of_P = 3;
 
 	tris.set_gl_draw_mode(GL_TRIANGLES);
 	
@@ -1431,10 +1410,8 @@ static void ofxFatSegment_( const ofVec2f* inP, const ofFloatColor* inC, const d
 	ofVec2f cap_start, cap_end;
 	_st_ofxFatLine SL[2];
 	
-	for ( int i=0; i<2; i++)
-	{
-		if ( weight[i]>=0.0 && weight[i]<1.0)
-		{
+	for ( int i=0; i<2; i++){
+		if ( weight[i]>=0.0 && weight[i]<1.0){
 			double f=weight[i]-static_cast<int>(weight[i]);
 			C[i].a *=f;
 		}
@@ -1443,10 +1420,8 @@ static void ofxFatSegment_( const ofVec2f* inP, const ofFloatColor* inC, const d
 	{	int i=0;
 		make_T_R_C( ofVec2f(P[i]), ofVec2f(P[i+1]), &T2,&R2,&bR, weight[i],opt, &r,&t,0, true);
 		
-		if ( cap_first)
-		{
-			if ( opt.cap==OFX_FATLINE_CAP_SQUARE)
-			{
+		if ( cap_first){
+			if ( opt.cap==OFX_FATLINE_CAP_SQUARE){
 				P[0] = ofVec2f(P[0]) - bR * (t+r);
 			}
 			cap_start = bR;
@@ -1957,7 +1932,8 @@ void anchor_weld( const _st_anchor& SA, _st_anchor& SB)
 	}
 } //anchor_weld
 #endif
-
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 #ifdef VASE_RENDERER_EXPER
 template <typename T>
 class circular_array{
@@ -2003,7 +1979,8 @@ public:
 	}
 };
 #endif //VASE_RENDERER_EXPER
-
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofxFatLine(
 	const ofVec2f* P,       //pointer to array of point of a ofxFatLine
 	const ofFloatColor* C,      //array of color
