@@ -5,7 +5,6 @@
 #include "vector_operations.h"
 #include "vertex_array_holder.h"
 
-typedef ofFloatColor ofFloatColor;
 
 static double vaserend_actual_PPI = 96.0;
 const double vaserend_standard_PPI = 111.94; //the PPI I used for calibration
