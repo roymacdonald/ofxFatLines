@@ -57,39 +57,31 @@ static inline bool negligible( double M){
     return -vaserend_min_alw < M && M < vaserend_min_alw;
 }
 //--------------------------------------------------------------
-inline bool negligible(const ofVec2f  &v)
-{
+inline bool negligible(const ofVec2f  &v){
     return negligible(v.x) && negligible(v.y);
 }
 //--------------------------------------------------------------
-inline bool non_negligible(const ofVec2f  &v)
-{
+inline bool non_negligible(const ofVec2f  &v){
     return !negligible(v);
 }
 //--------------------------------------------------------------
-inline bool is_zero(const ofVec2f  &v)
-{
+inline bool is_zero(const ofVec2f  &v){
     return v.x==0.0 && v.y==0.0;
 }
 //--------------------------------------------------------------
-inline bool non_zero(const ofVec2f  &v)
-{
+inline bool non_zero(const ofVec2f  &v){
     return !is_zero(v);
 }
 //--------------------------------------------------------------
-static inline  bool intersecting( const ofVec2f& A, const ofVec2f& B,
-                         const ofVec2f& C, const ofVec2f& D)
-{	//return true if AB intersects CD
+static inline  bool intersecting( const ofVec2f& A, const ofVec2f& B, const ofVec2f& C, const ofVec2f& D){	//return true if AB intersects CD
     return signed_area(A,B,C)>0 != signed_area(A,B,D)>0;
 }
 //--------------------------------------------------------------
-static inline ofVec2f midpoint( const ofVec2f& A, const ofVec2f& B)
-{
+static inline ofVec2f midpoint( const ofVec2f& A, const ofVec2f& B){
     return (A+B)*0.5;
 }
 //--------------------------------------------------------------
-static inline  bool opposite_quadrant( const ofVec2f& P1, const ofVec2f& P2)
-{
+static inline  bool opposite_quadrant( const ofVec2f& P1, const ofVec2f& P2){
     char P1x = P1.x>0? 1:(P1.x<0?-1:0);
     char P1y = P1.y>0? 1:(P1.y<0?-1:0);
     char P2x = P2.x>0? 1:(P2.x<0?-1:0);
@@ -109,13 +101,11 @@ static inline  bool opposite_quadrant( const ofVec2f& P1, const ofVec2f& P2)
 }
 //--------------------------------------------------------------
 //operations of 3 points
-static inline bool anchor_outward_D( ofVec2f& V, const ofVec2f& b, const ofVec2f& c)
-{
+static inline bool anchor_outward_D( ofVec2f& V, const ofVec2f& b, const ofVec2f& c){
     return (b.x*V.x - c.x*V.x + b.y*V.y - c.y*V.y) > 0;
 }
 //--------------------------------------------------------------
-static inline bool anchor_outward( ofVec2f& V, const ofVec2f& b, const ofVec2f& c, bool reverse=false)
-{ //put the correct outward vector at V, with V placed on b, comparing distances from c
+static inline bool anchor_outward( ofVec2f& V, const ofVec2f& b, const ofVec2f& c, bool reverse=false){ //put the correct outward vector at V, with V placed on b, comparing distances from c
     bool determinant = anchor_outward_D ( V,b,c);
     if ( determinant == (!reverse)) { //when reverse==true, it means inward
         //positive V is the outward vector
@@ -128,13 +118,11 @@ static inline bool anchor_outward( ofVec2f& V, const ofVec2f& b, const ofVec2f& 
     }
 }
 //--------------------------------------------------------------
-inline void anchor_inward( ofVec2f& V, const ofVec2f& b, const ofVec2f& c)
-{
+inline void anchor_inward( ofVec2f& V, const ofVec2f& b, const ofVec2f& c){
     anchor_outward( V,b,c,true);
 }
 //--------------------------------------------------------------
-inline void dot( const ofVec2f& a, const ofVec2f& b, ofVec2f& o) //dot product: o = a dot b
-{
+inline void dot( const ofVec2f& a, const ofVec2f& b, ofVec2f& o){ //dot product: o = a dot b
     o.x = a.x * b.x;
     o.y = a.y * b.y;
 }

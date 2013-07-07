@@ -9,6 +9,52 @@
 #else
 	#define DEBUG //
 #endif
+//--------------------------------------------------------------
+ofxFatLine::ofxFatLine(){
+    bTriangulation = false;
+	joint = OFX_FATLINE_JOINT_BEVEL;
+	cap = OFX_FATLINE_CAP_BUTT;
+	bFeather = true;
+    feathering = 1;
+	bFeatherAtCap =true;
+	bFeatherAtCore = true;
+}
+//--------------------------------------------------------------
+ofxFatLine::ofxFatLine(const vector<ofVec3f> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation){
+    ofxFatLine();
+    add(P, C, W);
+    enableTriangulation(triangulation);    
+}
+//--------------------------------------------------------------
+void ofxFatLine::add(const ofVec3f &p, const ofFloatColor &c, const double &w){
+    addVertex(p);
+    addColor(c);
+    addWeight(w);
+
+}
+void ofxFatLine::add(const vector<ofVec3f> &p, const vector<ofFloatColor> &c, const vector<double> &w){
+    addVertices(p);
+    addColors(c);
+    addWeights(w);
+}
+
+//--------------------------------------------------------------
+void ofxFatLine::addColor(const ofFloatColor &c){
+    colors.push_back(c);
+}
+//--------------------------------------------------------------
+void ofxFatLine::addColors(const vector<ofFloatColor> &c){
+	colors.insert( colors.end(), c.begin(), c.end());
+}
+
+//--------------------------------------------------------------
+void ofxFatLine::addWeight(const double &w){
+    weights.push_back(w);
+}
+//--------------------------------------------------------------
+void ofxFatLine::addWeights(const vector<double> &w){
+    weights.insert(weights.end(), w.begin(), w.end());
+}
 
 //--------------------------------------------------------------
 //--------------------------------------------------------------
