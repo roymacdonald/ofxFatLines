@@ -1,11 +1,8 @@
 #pragma once
 #include "ofMain.h"
 
-#include "vector_operations.h"
-#include "vertex_array_holder.h"
-
-static double vaserend_actual_PPI = 96.0;
-const double vaserend_standard_PPI = 111.94; //the PPI I used for calibration
+//#include "vector_operations.h"
+//#include "vertex_array_holder.h"
 
 enum ofxFatLineJointType{
     OFX_FATLINE_JOINT_MITER,
@@ -19,22 +16,14 @@ enum ofxFatLineCapType{
     OFX_FATLINE_CAP_RECT
 };
 
-//void ofxFatLine(const ofVec2f* P, const ofFloatColor* C, const double* weight, int size_of_P, const ofxFatLineOptions* options, bool triangulation);
-//void ofxFatLine(const ofVec2f* P, const ofFloatColor* C, const double* weight, int size_of_P, const ofxFatLineOptions* options);
-//inline void ofxFatSegment(  const ofVec2f& P1, const ofVec2f& P2, const ofFloatColor& C1, const ofFloatColor& C2, double W1, double W2, const ofxFatLineOptions* options);
-
 class ofxFatLine : public ofPolyline{
 public:
     ofxFatLine();
     ofxFatLine(const vector<ofVec3f> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation = false );
 
-    void add(const ofVec3f &p, const ofFloatColor &c, const double &w);
-    void add(const vector<ofVec3f> &p, const vector<ofFloatColor> &c, const vector<double> &w);
-    void addColor(const ofFloatColor &c);
-    void addColors(const vector<ofFloatColor> &c);
-    
-    void addWeight(const double &w);
-    void addWeights(const vector<double> &w);
+    void add(const ofVec3f &thePoint, const ofFloatColor &theColor, const double &theWeight);
+    void add(const vector<ofVec3f> &thePoints, const vector<ofFloatColor> &theColors, const vector<double> &theWeights);
+
     
     void enableFeathering(bool e = true){bFeather = e;}
     void toggleFeathering(){enableFeathering(!bFeather);}
@@ -57,10 +46,41 @@ public:
     void enableFeatherAtCap(bool e = true){bFeatherAtCap =e; }
     void toggleFeatherAtCap(){enableFeatherAtCap(!bFeatherAtCap);}    
     
+    void draw();
+    void update();
+    void updatePoint(int index, ofVec3f p);
+    ofMesh &getMesh(){return mesh;}
+    void drawDebug();
+    void printDebug();
 protected:
+    void addColor(const ofFloatColor &c);
+    void addColors(const vector<ofFloatColor> &c);
+    void addWeight(const double &w);
+    void addWeights(const vector<double> &w);
+
+    void pushQuadIndices(int index);
+    void pushQuadIndices(int i1, int i2, int i3, int i4);
+    void pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int index, float cos, bool bFlipped = false);    
+    void pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, float l1, float l2, bool bInv);
+    void pushNewAnchor(ofVec3f a, ofFloatColor c);
+    void updateCap(ofVec3f p1, ofVec3f p2, int index);
+    void updateMesh();
+    void updateMeshIndices();
+    void updateJoint();
+    void updateVertex(int index);
+    
+    ofMesh mesh;
     
     vector<ofFloatColor> colors;
     vector<double> weights;
+    vector<ofVec3f> midVectors;
+    vector<ofVec3f> flippepMidVectors;
+    vector<ofVec3f> crossedVectors;
+    vector<ofVec3f> meshVertices;
+    vector<ofIndexType>meshIndices;
+    vector<ofFloatColor> meshColors;
+    
+
     bool bTriangulation;
 	ofxFatLineJointType joint;
 	ofxFatLineCapType cap;

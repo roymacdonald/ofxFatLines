@@ -1,14 +1,29 @@
-#ifndef VASE_RENDERER_DRAFT1_2_CPP
-#define VASE_RENDERER_DRAFT1_2_CPP
 
 #include "ofxFatLine.h"
 
-#define VASE_RENDERER_DEBUG
-#ifdef VASE_RENDERER_DEBUG
-	#define DEBUG printf
-#else
-	#define DEBUG //
-#endif
+//--------------------------------------------------------------
+inline double sideOfLine(const ofVec2f& v, const ofVec2f& a, const ofVec2f& b){
+    ofVec2f dir = (b-a).normalized().perpendiculared();
+    return v.normalized().dot(dir);
+}
+//--------------------------------------------------------------
+static inline bool same_side_of_line( const ofVec2f& V, const ofVec2f& ref, const ofVec2f& a, const ofVec2f& b){
+	double sign1 = sideOfLine(V*100, a, b);
+    double sign2 = sideOfLine(ref*100, a, b);
+    return !( (sign1>=0) ^ (sign2>=0));
+    
+}
+//--------------------------------------------------------------
+static inline ofVec3f getMidVector(ofVec3f &a, ofVec3f &b){
+    return(a.normalized() + b.normalized()).normalized();
+    /*
+     ofVec3f perp = (a - pivot).cross(b - pivot);
+     float  angle = (a - pivot).angle(b - pivot);
+     return a.getRotated(angle/2,pivot, perp);//*/
+}
+
+
+
 //--------------------------------------------------------------
 ofxFatLine::ofxFatLine(){
     bTriangulation = false;
@@ -23,21 +38,266 @@ ofxFatLine::ofxFatLine(){
 ofxFatLine::ofxFatLine(const vector<ofVec3f> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation){
     ofxFatLine();
     add(P, C, W);
-    enableTriangulation(triangulation);    
+    enableTriangulation(triangulation); 
+    update();
 }
 //--------------------------------------------------------------
-void ofxFatLine::add(const ofVec3f &p, const ofFloatColor &c, const double &w){
-    addVertex(p);
-    addColor(c);
-    addWeight(w);
-
+void ofxFatLine::add(const ofVec3f &thePoint, const ofFloatColor &theColor, const double &theWeight){
+    addVertex(thePoint);
+    addColor(theColor);
+    addWeight(theWeight);
+    update();
 }
-void ofxFatLine::add(const vector<ofVec3f> &p, const vector<ofFloatColor> &c, const vector<double> &w){
-    addVertices(p);
-    addColors(c);
-    addWeights(w);
+//--------------------------------------------------------------
+void ofxFatLine::add(const vector<ofVec3f> &thePoints, const vector<ofFloatColor> &theColors, const vector<double> &theWeights){
+    addVertices(thePoints);
+    addColors(theColors);
+    addWeights(theWeights);
+    update();
+}
+//--------------------------------------------------------------
+void ofxFatLine::printDebug(){
+    cout << "ofxFatLine: " << endl;
+    cout << "Num vertices: " << getVertices().size() << endl;
+    cout << "Num colors: " << colors.size() << endl;
+    cout << "Num weights: " << weights.size() << endl;
+    cout << "Num mesh vertices: " << mesh.getVertices().size() << endl;
+    cout << "Num mesh colors: " << mesh.getColors().size() << endl;
+    cout << "------------------------------------------------" << endl;
+}
+//--------------------------------------------------------------
+void ofxFatLine::updatePoint(int index, ofVec3f p){
+    if (index < getVertices().size()) {
+        getVertices()[index] = p;
+    }
+}
+//--------------------------------------------------------------
+void ofxFatLine::updateMesh(){
+    meshVertices.clear();
+    meshColors.clear();
+    meshIndices.clear();
+    for (int i =0; i<getVertices().size(); i++) {
+        updateVertex(i);
+        /*
+         ofVec3f a (getVertices()[i-1] - getVertices()[i]);
+         ofVec3f b (getVertices()[i+1] - getVertices()[i]);
+         
+         float  angle = a.angle(b);
+         
+         ofVec3f p = getMidVector(a, b);
+         bool flip = !same_side_of_line(p, flippepMidVectors.back(), getVertices()[i-1], getVertices()[i]);
+         
+         float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
+         pushNewVertex(getVertices()[i], p, i, cs, flip);
+         //*/
+        
+    }   
+    
+    mesh.clear();
+    mesh.addVertices(meshVertices);
+    mesh.addColors(meshColors);
+    mesh.addIndices(meshIndices);
+    // updateMeshIndices();
+}
+//--------------------------------------------------------------
+void ofxFatLine::updateVertex(int index){
+    if (index == 0 && getVertices().size() >1){
+        updateCap(getVertices()[index+1], getVertices()[index], index);
+        
+    }else if(index == getVertices().size()-1 && getVertices().size() >1) {
+        updateCap(getVertices()[index-1], getVertices()[index], index);
+        
+    }else if ( getVertices().size() >2){
+        ofVec3f a (getVertices()[index-1] - getVertices()[index]);
+        ofVec3f b (getVertices()[index+1] - getVertices()[index]);
+        
+        float  angle = a.angle(b);
+        
+        ofVec3f p = getMidVector(a, b);
+        bool flip = !same_side_of_line(p, flippepMidVectors.back(), getVertices()[index-1], getVertices()[index]);
+        
+        float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
+        pushNewVertex(getVertices()[index], p, a.cross(ofVec3f(0,0,1).normalized()), b.cross(ofVec3f(0,0,1).normalized()), index, cs, flip);
+    }
+}
+//--------------------------------------------------------------
+void ofxFatLine::pushNewAnchor(ofVec3f a, ofFloatColor c){
+    meshVertices.push_back(a);
+    meshColors.push_back(c);
+}
+//--------------------------------------------------------------
+void ofxFatLine::pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, float l1, float l2, bool bInv){
+    
+    ofVec3f pp = dir * l1;
+    ofVec3f pa = pp + dir *l2;
+    if (!bInv) {
+        pushNewAnchor(pp + v, color);        
+    }
+    pushNewAnchor(pa + v, ofFloatColor(color.r, color.g, color.g, 0));
+    if (bInv) {
+        pushNewAnchor(pp + v, color);
+    }
+    //    meshVertices.push_back(pp + v);
+    //  meshColors.push_back(color);
+    
+}
+//--------------------------------------------------------------
+void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int index, float cos, bool bFlipped){
+    
+    ofFloatColor c(colors[index]);
+    c.a =0;
+    if (cos == 0){
+        cos = FLT_EPSILON;
+    }
+    cos = 1/cos;
+    midVectors.push_back(p);
+    if (bFlipped) {
+        p *=-1;
+    }
+    flippepMidVectors.push_back(p);
+    
+    r1.normalize();
+    r2.normalize();
+    if (midVectors.back().dot(r1)>0) {
+        r1 *=-1;
+    }
+    if (midVectors.back().dot(r2)>0) {
+        r2 *=-1;
+    }    
+    pushNewAnchors(v, r1, colors[index], weights[index], feathering, bFlipped);
+    if (bFlipped) {
+        pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, !bFlipped);
+        pushNewAnchor(v, colors[index]);
+        pushNewAnchors(v, r2, colors[index], weights[index], feathering, bFlipped);
+        
+        
+    }else{
+        pushNewAnchors(v, r2, colors[index], weights[index], feathering, bFlipped);
+        pushNewAnchor(v, colors[index]);
+        pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, !bFlipped);        
+    }
+    int l = meshVertices.size();
+    if (l >11) {
+        if (bFlipped) {
+            pushQuadIndices(l - 12, l -11, l - 5, l - 4);
+            pushQuadIndices(l - 11, l -10, l - 4, l - 3);
+            pushQuadIndices(l - 10, l - 9, l - 3, l - 7);
+            pushQuadIndices(l -  9, l - 8, l - 7, l - 6);
+        }else{
+            pushQuadIndices(l - 12, l -11, l - 7, l - 6);
+            pushQuadIndices(l - 11, l -10, l - 6, l - 3);
+            pushQuadIndices(l - 10, l - 9, l - 3, l - 2);
+            pushQuadIndices(l -  9, l - 8, l - 2, l - 1);
+        }
+    }
+    /*
+     ofVec3f pp = p * 50 * cos;
+     ofVec3f pa = pp + p * 2 * cos;
+     
+     meshVertices.push_back(pa + v);
+     meshColors.push_back(c);
+     
+     meshVertices.push_back(pp + v);
+     meshColors.push_back(colors[index]); 
+     
+     meshVertices.push_back(v);
+     meshColors.push_back(colors[index]);
+     
+     meshVertices.push_back(v - pp);
+     meshColors.push_back(colors[index]);
+     
+     meshVertices.push_back(v - pa);
+     meshColors.push_back(c);
+     
+     if (meshVertices.size() >5) {
+     for (int i = meshVertices.size()-4; i<meshVertices.size(); i++) {
+     pushQuadIndices(i);
+     }
+     }
+     //*/
+    
+}
+//--------------------------------------------------------------
+void ofxFatLine::pushQuadIndices(int i1, int i2, int i3, int i4){
+    meshIndices.push_back((ofIndexType)i1);
+    meshIndices.push_back((ofIndexType)i3);
+    meshIndices.push_back((ofIndexType)i4);
+    meshIndices.push_back((ofIndexType)i1);
+    meshIndices.push_back((ofIndexType)i2);
+    meshIndices.push_back((ofIndexType)i4);
+    
+}
+//--------------------------------------------------------------
+void ofxFatLine::pushQuadIndices(int index){
+    /*
+     meshIndices.push_back((ofIndexType)index -6);
+     meshIndices.push_back((ofIndexType)index -5);
+     meshIndices.push_back((ofIndexType)index -1);
+     meshIndices.push_back((ofIndexType)index -5);
+     meshIndices.push_back((ofIndexType)index -1);
+     meshIndices.push_back((ofIndexType)index);
+     //*/
+    meshIndices.push_back((ofIndexType)index -8);
+    meshIndices.push_back((ofIndexType)index -7);
+    meshIndices.push_back((ofIndexType)index -1);
+    meshIndices.push_back((ofIndexType)index -7);
+    meshIndices.push_back((ofIndexType)index -1);
+    meshIndices.push_back((ofIndexType)index);
 }
 
+//--------------------------------------------------------------
+void ofxFatLine::updateMeshIndices(){
+    for (int i = 0; i < meshVertices.size()-5; i+=5) {
+        for (int j = 0; j <4; j++) {
+            mesh.addIndex(j+i);
+            mesh.addIndex(j+i+1);
+            mesh.addIndex(j+i+5);
+            mesh.addIndex(j+i+1);
+            mesh.addIndex(j+i+5);
+            mesh.addIndex(j+i+6);
+        }   
+    }
+}
+//--------------------------------------------------------------
+void ofxFatLine::updateJoint(){
+    
+}
+//--------------------------------------------------------------
+void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
+    ofVec3f p = (p1 - p2).cross(ofVec3f(0,0,1)).normalize(); 
+    bool flip = false;
+    if (index>0) {
+        flip = !same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+    }
+    pushNewVertex(p2, p, p, p, index, 1, flip);
+}
+//--------------------------------------------------------------
+void ofxFatLine::update(){
+    updateMesh();    
+}
+//--------------------------------------------------------------
+void ofxFatLine::draw(){
+    mesh.draw();
+}
+//--------------------------------------------------------------
+void ofxFatLine::drawDebug(){
+    ofPushStyle();
+    ofSetColor(255, 0,127);
+    ofCircle(getVertices()[0], 5);
+    ofSetColor(255, 0,0);
+    ofSetLineWidth(3);
+    for (int i = 1; i<getVertices().size(); i++) {
+        ofLine(getVertices()[i-1], getVertices()[i]);
+    }
+    
+    ofMesh m(mesh);
+    m.disableColors();
+    ofSetLineWidth(1);
+    ofSetColor(0);
+    m.drawWireframe();
+    ofPopStyle();
+    
+}
 //--------------------------------------------------------------
 void ofxFatLine::addColor(const ofFloatColor &c){
     colors.push_back(c);
@@ -57,2087 +317,5 @@ void ofxFatLine::addWeights(const vector<double> &w){
 }
 
 //--------------------------------------------------------------
-//--------------------------------------------------------------
-struct _st_knife_cut{
-	ofVec2f T1[4]; //retained polygon, also serves as input triangle
-	ofFloatColor C1[4]; //
-	
-	ofVec2f T2[4]; //cut away polygon
-	ofFloatColor C2[4]; //
-	
-	int T1c, T2c; //count of T1 & T2
-    //must be 0,3 or 4
-};
-//--------------------------------------------------------------
-struct _st_ofxFatLine
-//the struct to hold info for anchor_late() to perform triangluation
-{
-	//for all joints
-	ofVec2f vP; //vector to intersection point
-	ofVec2f vR; //fading vector at sharp end
-    //all vP,vR are outward
-	
-	//for djoint==OFX_FATLINE_JOINT_BEVEL
-	ofVec2f T; //core thickness of a line
-	ofVec2f R; //fading edge of a line
-	ofVec2f bR; //out stepping vector, same direction as cap
-	ofVec2f T1,R1; //alternate vectors, same direction as T21
-    //all T,R,T1,R1 are outward
-	
-	//for djoint==OFX_FATLINE_JOINT_ROUND
-	float t,r;
-	
-	//for degeneration case
-	bool degenT; //core degenerate
-	bool degenR; //fade degenerate
-	bool pre_full; //draw the preceding ofxFatSegment in full
-	ofVec2f PT,PR;
-	float pt; //parameter at intersection
-	bool R_full_degen;
-	
-	//
-	char djoint; //determined joint
-    // e.g. originally a joint is OFX_FATLINE_JOINT_MITER. but it is smaller than critical angle,
-    //   should then set djoint to OFX_FATLINE_JOINT_BEVEL
-	
-	//for anchors joining
-	char ajoin; //join between anchors
-	ofVec2f a1,a2,las_PT;
-	ofFloatColor cc1,cc2;
-};
-//--------------------------------------------------------------
-struct _st_anchor
-//the struct to hold memory for the working of anchor()
-{
-	ofVec2f  P[3]; //point
-	ofFloatColor C[3]; //color
-	double W[3];//weight
-	
-	ofVec2f cap_start, cap_end;
-	_st_ofxFatLine SL[3];
-	vertex_array_holder vah;
-	bool result; //returned by anchor()
-};
 
-//--------------------------------------------------------------
-//--------------------------------------------------------------
 
-static void determine_t_r ( double w, double& t, double& R)
-{
-	//efficiency: can cache one set of w,t,R values
-	// i.e. when a ofxFatLine is of uniform thickness, the same w is passed in repeatedly
-	double f=w-static_cast<int>(w);
-	
-	/*   */if ( w>=0.0 && w<1.0) {
-		t=0.05; R=0.768;//R=0.48+0.32*f;
-	} else if ( w>=1.0 && w<2.0) {
-		t=0.05+f*0.33; R=0.768+0.312*f;
-	} else if ( w>=2.0 && w<3.0){
-		t=0.38+f*0.58; R=1.08;
-	} else if ( w>=3.0 && w<4.0){
-		t=0.96+f*0.48; R=1.08;
-	} else if ( w>=4.0 && w<5.0){
-		t=1.44+f*0.46; R=1.08;
-	} else if ( w>=5.0 && w<6.0){
-		t=1.9+f*0.6; R=1.08;
-	} else if ( w>=6.0){
-		double ff=w-6.0;
-		t=2.5+ff*0.50; R=1.08;
-	}
-	
-	//PPI correction
-	double PPI_correction = vaserend_standard_PPI / vaserend_actual_PPI;
-	const double up_bound = 1.6; //max value of w to receive correction
-	const double start_falloff = 1.0;
-	if ( w>0.0 && w<up_bound)
-	{	//here we gracefully apply the correction
-		// so that the effect of correction diminishes starting from w=start_falloff
-		//   and completely disappears when w=up_bound
-		double correction = 1.0 + (PPI_correction-1.0)*(up_bound-w)/(up_bound-start_falloff);
-		t *= PPI_correction;
-		R *= PPI_correction;
-	}
-}
-//--------------------------------------------------------------
-static float get_OFX_FATLINE_JOINT_ROUND_dangle(float t, float r)
-{
-	float dangle;
-	float sum = t+r;
-	if ( sum <= 1.44f+1.08f) //w<=4.0, feathering=1.0
-		dangle = 0.6f/(t+r);
-	else if ( sum <= 3.25f+1.08f) //w<=6.5, feathering=1.0
-		dangle = 2.8f/(t+r);
-	else
-		dangle = 4.2f/(t+r);
-	return dangle;
-}
-//--------------------------------------------------------------
-static void make_T_R_C( const ofVec2f& P1, const ofVec2f& P2, ofVec2f* T, ofVec2f* R, ofVec2f* C,
-				double w, const ofxFatLineOptions& opt,
-				double* rr, double* tt, float* dist,
-				bool seg_mode=false)
-{
-	double t=1.0,r=0.0;
-	ofVec2f DP(P2-P1);
-	
-	//calculate t,r
-	determine_t_r( w,t,r);
-	
-	if ( opt.feather && !opt.no_feather_at_core && opt.feathering != 1.0)
-		r *= opt.feathering;
-	else if ( seg_mode)
-	{
-		//TODO: handle correctly for hori/vert ofxFatSegments in a ofxFatLine
-		if ( negligible(DP.x)) {
-			if ( w>0.0 && w<=1.0) {
-				t=0.5; r=0.05;
-			}
-		} else if (negligible(DP.y)) {
-			if ( w>0.0 && w<=1.0) {
-				t=0.5; r=0.05;
-			}
-		}
-	}
-	
-	//output t,r
-	if (tt) *tt = t;
-	if (rr) *rr = r;
-	
-	//calculate T,R,C
-
-    DP.normalize();
-	double len =  DP.length();    
-	if (dist) *dist = (float)len;
-	if (C) *C = DP;
-	makePerpendicular(DP);
-	
-	if (T) *T = DP*t;
-	if (R) *R = DP*r;
-}
-//--------------------------------------------------------------
-static void same_side_of_line( ofVec2f& V, const ofVec2f& ref, const ofVec2f& a, const ofVec2f& b)
-{
-	double sign1 = signed_area( a+ref,a,b);
-	double sign2 = signed_area( a+V,  a,b);
-	if ( (sign1>=0) != (sign2>=0))
-	{
-		makeOpposite(V);
-	}
-}
-//--------------------------------------------------------------
-static void inner_arc( vertex_array_holder& hold, const ofVec2f& P,
-		const ofFloatColor& C, const ofFloatColor& C2,
-		float dangle, float angle1, float angle2,
-		float r, float r2, bool ignor_ends,
-                      ofVec2f* apparent_P){	//(apparent center) center of fan
-//draw the inner arc between angle1 and angle2 with dangle at each step.
-// -the arc has thickness, r is the outer radius and r2 is the inner radius,
-//    with color C and C2 respectively.
-//    in case when inner radius r2=0.0f, it gives a pie.
-// -when ignor_ends=false, the two edges of the arc lie exactly on angle1
-//    and angle2. when ignor_ends=true, the two edges of the arc do not touch
-//    angle1 or angle2.
-// -P is the mathematical center of the arc.
-// -when apparent_P points to a valid ofVec2f (apparent_P != 0), r2 is ignored,
-//    apparent_P is then the apparent origin of the pie.
-// -the result is pushed to hold, in form of a triangle strip
-// -an inner arc is an arc which is always shorter than or equal to a half circumference
-
-	bool incremental=true;
-	
-	if ( angle2 > angle1){
-		if ( angle2-angle1>PI){
-			angle2=angle2-2*PI;
-		}
-	}
-	else{
-		if ( angle1-angle2>PI){
-			angle1=angle1-2*PI;
-		}
-	}
-	if ( angle1>angle2){
-		incremental = false; //means decremental
-	}
-	
-	if ( incremental){
-		if ( ignor_ends){
-			int i=0;
-			for ( float a=angle1+dangle; a<angle2; a+=dangle, i++){
-				float x=cos(a);
-				float y=sin(a);
-				
-				#define INNER_ARC_PUSH \
-					hold.push( ofVec2f(P.x+x*r,P.y-y*r), C);\
-					if ( !apparent_P)\
-						hold.push( ofVec2f(P.x+x*r2,P.y-y*r2), C2);\
-					else\
-						hold.push( *apparent_P, C2);
-				
-				INNER_ARC_PUSH
-				
-				if ( i>100) {
-					DEBUG("trapped in loop: inc,ig_end angle1=%.2f, angle2=%.2f, dangle=%.2f\n", angle1, angle2, dangle);
-					break;
-				}
-			}
-			//DEBUG( "steps=%d ",i); fflush(stdout);
-		}
-		else{
-			int i=0;
-			for ( float a=angle1; ; a+=dangle, i++){
-				if ( a>angle2)
-					a=angle2;
-				
-				float x=cos(a);
-				float y=sin(a);
-				
-				INNER_ARC_PUSH
-				
-				if ( a>=angle2)
-					break;
-				
-				if ( i>100) {
-					DEBUG("trapped in loop: inc,end angle1=%.2f, angle2=%.2f, dangle=%.2f\n", angle1, angle2, dangle);
-					break;
-				}
-			}
-		}
-	}
-	else{ //decremental
-		if ( ignor_ends){
-			int i=0;
-			for ( float a=angle1-dangle; a>angle2; a-=dangle, i++){
-				float x=cos(a);
-				float y=sin(a);
-				
-				INNER_ARC_PUSH
-				
-				if ( i>100) {
-					DEBUG("trapped in loop: dec,ig_end angle1=%.2f, angle2=%.2f, dangle=%.2f\n", angle1, angle2, dangle);
-					break;
-				}
-			}
-		}
-		else{
-			int i=0;
-			for ( float a=angle1; ; a-=dangle, i++){
-				if ( a<angle2)
-					a=angle2;
-				
-				float x=cos(a);
-				float y=sin(a);
-				
-				INNER_ARC_PUSH
-				#undef INNER_ARC_PUSH
-				
-				if ( a<=angle2)
-					break;
-				
-				if ( i>100) {
-					DEBUG("trapped in loop: dec,end angle1=%.2f, angle2=%.2f, dangle=%.2f\n", angle1, angle2, dangle);
-					break;
-				}
-			}
-		}
-	}
-}
-//--------------------------------------------------------------
-static void vectors_to_arc( vertex_array_holder& hold, const ofVec2f& P,
-		const ofFloatColor& C, const ofFloatColor& C2,
-		ofVec2f A, ofVec2f B, float dangle, float r, float r2, bool ignor_ends,
-		ofVec2f* apparent_P)
-//triangulate an inner arc between vectors A and B,
-//  A and B are position vectors relative to P
-{
-	A *= 1/r;
-	B *= 1/r;
-	if ( A.x > 1.0-vaserend_min_alw) A.x = 1.0-vaserend_min_alw;
-	if ( A.x <-1.0+vaserend_min_alw) A.x =-1.0+vaserend_min_alw;
-	if ( B.x > 1.0-vaserend_min_alw) B.x = 1.0-vaserend_min_alw;
-	if ( B.x <-1.0+vaserend_min_alw) B.x =-1.0+vaserend_min_alw;
-	
-	float angle1 = acos(A.x);
-	float angle2 = acos(B.x);
-	if ( A.y>0){ angle1=2*PI-angle1;}
-	if ( B.y>0){ angle2=2*PI-angle2;}
-	
-	inner_arc( hold, P, C,C2, dangle,angle1,angle2, r,r2, ignor_ends, apparent_P);
-}
-
-#ifdef VASE_RENDERER_DEBUG//--------------------------------------------------------------
-static void annotate( const ofVec2f& P, ofFloatColor cc, int I=-1){
-	static int i=0;
-	if ( I != -1) i=I;
-	
-	glBegin(GL_LINES);
-		glColor3f(1,0,0);
-		glVertex2f(P.x-4,P.y-4);
-		glVertex2f(P.x+4,P.y+4);
-		glVertex2f(P.x-4,P.y+4);
-		glVertex2f(P.x+4,P.y-4);
-	glEnd();
-	
-	ofDrawBitmapString( ofToString(i),float(P.x+2),float(P.y));
-	i++;
-}
-//--------------------------------------------------------------
-static void annotate( const ofVec2f& P){
-	ofFloatColor cc;
-	annotate(P,cc);
-}
-//--------------------------------------------------------------
-static void draw_vector( const ofVec2f& P, const ofVec2f& V, const char* name){
-	ofVec2f P2 = P+V;
-	glBegin(GL_LINES);
-		glColor3f(1,0,0);
-		glVertex2f(P.x,P.y);
-		glColor3f(1,0.9,0.9);
-		glVertex2f(P2.x,P2.y);
-	glEnd();
-	if (name)
-	{
-		glColor3f(0,0,0);
-	    ofDrawBitmapString(name , float(P2.x+2),float(P2.y));
-	}
-}
-//--------------------------------------------------------------
-void draw_triangles_outline( vertex_array_holder& tris){
-	for ( int i=0, count=tris.get_count(); i<count; i++)
-	{
-		ofVec2f P1 = tris.get(i); i++;
-		ofVec2f P2 = tris.get(i); i++;
-		ofVec2f P3 = tris.get(i);
-		
-		glBegin(GL_LINE_STRIP);
-			glColor3f(1,0,0);
-			glVertex2f( P1.x,P1.y);
-			glVertex2f( P2.x,P2.y);
-			glVertex2f( P3.x,P3.y);
-			glVertex2f( P1.x,P1.y);
-		glEnd();
-	}
-}
-#endif
-/*//--------------------------------------------------------------
-static ofVec2f plus_minus( const ofVec2f& a, const ofVec2f& b, bool plus)
-{
-	if (plus) return a+b;
-	else return a-b;
-}//--------------------------------------------------------------
-static ofVec2f plus_minus( const ofVec2f& a, bool plus)
-{
-	if (plus) return a;
-	else return -a;
-}//--------------------------------------------------------------
-static bool quad_is_reflexed( const ofVec2f& P0, const ofVec2f& P1, const ofVec2f& P2, const ofVec2f& P3)
-{
-	//points:
-	//   1------3
-	//  /      /
-	// 0------2
-	// vector 01 parallel to 23
-	
-	return ofVec2f::distance_squared(P1,P3) + ofVec2f::distance_squared(P0,P2)
-		> ofVec2f::distance_squared(P0,P3) + ofVec2f::distance_squared(P1,P2);
-}//--------------------------------------------------------------
-static void push_quad_safe( vertex_array_holder& core,
-		const ofVec2f& P2, const ofFloatColor& cc2, bool transparent2,
-		const ofVec2f& P3, const ofFloatColor& cc3, bool transparent3)
-{
-	//push 2 points to form a quad safely(without reflex)
-	ofVec2f P0 = core.get_relative_end(-2);
-	ofVec2f P1 = core.get_relative_end(-1);
-	
-	if ( !quad_is_reflexed(P0,P1,P2,P3))
-	{
-		core.push(P2,cc2,transparent2);
-		core.push(P3,cc3,transparent3);
-	}
-	else
-	{
-		core.push(P3,cc3,transparent3);
-		core.push(P2,cc2,transparent2);
-	}
-}*///--------------------------------------------------------------
-static void push_quad( vertex_array_holder& core,
-		const ofVec2f& P0, const ofVec2f& P1, const ofVec2f& P2, const ofVec2f& P3,
-		const ofFloatColor& c0, const ofFloatColor& c1, const ofFloatColor& c2, const ofFloatColor& c3,
-		bool trans0=0, bool trans1=0, bool trans2=0, bool trans3=0,
-		bool strip=1)
-{
-	core.push3( P0, P1, P2,
-		    c0, c1, c2,
-	trans0, trans1, trans2);
-	
-	if ( strip) //interpret P0 to P3 as triangle strip
-	{	core.push3( P1, P2, P3,
-			    c1, c2, c3,
-		trans1, trans2, trans3);
-	}
-	else
-	{	core.push3( P0, P2, P3,
-			    c0, c2, c3,
-		trans0, trans2, trans3);
-	}
-}
-
-//--------------------------------------------------------------
-static int triangle_knife_cut( const ofVec2f& kn1, const ofVec2f& kn2, const ofVec2f& kn_out, //knife
-			       const ofFloatColor* kC0, const ofFloatColor* kC1, //color of knife
-		_st_knife_cut& ST)//will modify for output
-//see knife_cut_test for more info
-{	//return number of points cut away
-	int points_cut_away = 0;
-	
-	bool kn_colored = kC0 && kC1; //if true, use the colors of knife instead
-	bool std_sign = signed_area( kn1,kn2,kn_out) > 0;
-	bool s1 = signed_area( kn1,kn2,ST.T1[0])>0 == std_sign; //true means this point should be cut
-	bool s2 = signed_area( kn1,kn2,ST.T1[1])>0 == std_sign;
-	bool s3 = signed_area( kn1,kn2,ST.T1[2])>0 == std_sign;
-	int sums = int(s1)+int(s2)+int(s3);
-	
-	if ( sums == 0)
-	{	//all 3 points are retained
-		ST.T1c = 3;
-		ST.T2c = 0;
-		
-		points_cut_away = 0;
-	}
-	else if ( sums == 3)
-	{	//all 3 are cut away
-		ST.T1c = 0;
-		ST.T2c = 3;
-		
-		ST.T2[0] = ST.T1[0];
-		ST.T2[1] = ST.T1[1];
-		ST.T2[2] = ST.T1[2];
-			ST.C2[0] = ST.C1[0];
-			ST.C2[1] = ST.C1[1];
-			ST.C2[2] = ST.C1[2];
-		
-		points_cut_away = 3;
-	}
-	else
-	{
-		if ( sums == 2) {
-			s1 = !s1; 
-			s2 = !s2;
-			s3 = !s3;
-		}
-		//
-		ofVec2f ip1,ip2, outp;
-		ofFloatColor iC1,iC2, outC;
-		if ( s1) { //here assume one point is cut away
-				// thus only one of s1,s2,s3 is true
-			outp= ST.T1[0];  outC= ST.C1[0];
-			ip1 = ST.T1[1];  iC1 = ST.C1[1];
-			ip2 = ST.T1[2];  iC2 = ST.C1[2];
-		} else if ( s2) {
-			outp= ST.T1[1];  outC= ST.C1[1];
-			ip1 = ST.T1[0];  iC1 = ST.C1[0];
-			ip2 = ST.T1[2];  iC2 = ST.C1[2];
-		} else if ( s3) {
-			outp= ST.T1[2];  outC= ST.C1[2];
-			ip1 = ST.T1[0];  iC1 = ST.C1[0];
-			ip2 = ST.T1[1];  iC2 = ST.C1[1];
-		}
-		
-		ofVec2f interP1,interP2;
-		ofFloatColor interC1,interC2;
-		double ble1,kne1, ble2,kne2;
-		intersect( kn1,kn2, ip1,outp, interP1, &kne1,&ble1);
-		intersect( kn1,kn2, ip2,outp, interP2, &kne2,&ble2);
-		
-		{	if ( kn_colored && validColorRange(kne1))
-				interC1 = colorBetween( *kC0, *kC1, kne1);
-			else
-				interC1 = colorBetween( iC1, outC, ble1);
-		}
-		
-		{	if ( kn_colored && validColorRange(kne2))
-				interC2 = colorBetween( *kC0, *kC1, kne2);
-			else
-				interC2 = colorBetween( iC2, outC, ble2);
-		}
-		
-		//ip2 first gives a polygon
-		//ip1 first gives a triangle strip
-		
-		if ( sums == 1) {
-			//one point is cut away
-			ST.T1[0] = ip1;      ST.C1[0] = iC1;
-			ST.T1[1] = ip2;      ST.C1[1] = iC2;
-			ST.T1[2] = interP1;  ST.C1[2] = interC1;
-			ST.T1[3] = interP2;  ST.C1[3] = interC2;
-			ST.T1c = 4;
-			
-			ST.T2[0] = outp;     ST.C2[0] = outC;
-			ST.T2[1] = interP1;  ST.C2[1] = interC1;
-			ST.T2[2] = interP2;  ST.C2[2] = interC2;
-			ST.T2c = 3;
-			
-			points_cut_away = 1;
-		} else if ( sums == 2) {
-			//two points are cut away
-			ST.T2[0] = ip1;      ST.C2[0] = iC1;
-			ST.T2[1] = ip2;      ST.C2[1] = iC2;
-			ST.T2[2] = interP1;  ST.C2[2] = interC1;
-			ST.T2[3] = interP2;  ST.C2[3] = interC2;
-			ST.T2c = 4;
-			
-			ST.T1[0] = outp;     ST.C1[0] = outC;
-			ST.T1[1] = interP1;  ST.C1[1] = interC1;
-			ST.T1[2] = interP2;  ST.C1[2] = interC2;
-			ST.T1c = 3;
-			
-			points_cut_away = 2;
-		}
-		
-		/*if ( (0.0-vaserend_min_alw < kne1 && kne1 < 1.0+vaserend_min_alw) ||
-		     (0.0-vaserend_min_alw < kne2 && kne2 < 1.0+vaserend_min_alw) )
-		{	//highlight the wound
-			glBegin(GL_LINE_STRIP);
-				glColor3f(1,0,0);
-				glVertex2f(ST.T1[0].x,ST.T1[0].y);
-				glVertex2f(ST.T1[1].x,ST.T1[1].y);
-				glVertex2f(ST.T1[2].x,ST.T1[2].y);
-				glVertex2f(ST.T1[0].x,ST.T1[0].y);
-			glEnd();
-			
-			if ( ST.T1c > 3)
-			glBegin(GL_LINE_STRIP);
-				glVertex2f(ST.T1[1].x,ST.T1[1].y);
-				glVertex2f(ST.T1[2].x,ST.T1[2].y);
-				glVertex2f(ST.T1[3].x,ST.T1[3].y);
-				glVertex2f(ST.T1[1].x,ST.T1[1].y);
-			glEnd();
-		}*/
-	}
-	
-	return points_cut_away;
-}//--------------------------------------------------------------
-static void vah_knife_cut( vertex_array_holder& core, //serves as both input and output
-		const ofVec2f& kn1, const ofVec2f& kn2, const ofVec2f& kn_out)
-//perform knife cut on all triangles (GL_TRIANGLES) in core
-{
-	_st_knife_cut ST;
-	for ( int i=0; i<core.get_count(); i+=3)
-	{
-		ST.T1[0] = core.get(i);
-		ST.T1[1] = core.get(i+1);
-		ST.T1[2] = core.get(i+2);
-		ST.C1[0] = core.get_color(i);
-		ST.C1[1] = core.get_color(i+1);
-		ST.C1[2] = core.get_color(i+2);
-		ST.T1c = 3; //will be ignored anyway
-		
-		int result = triangle_knife_cut( kn1,kn2,kn_out,0,0, ST);
-		
-		switch (result)
-		{
-		case 0:
-			//do nothing
-		break;
-		
-		case 3:	//degenerate the triangle
-			core.move(i+1,i); //move i into i+1
-			core.move(i+2,i);
-		break;
-		
-		case 1:
-		case 2:
-			core.replace(i,  ST.T1[0],ST.C1[0]);
-			core.replace(i+1,ST.T1[1],ST.C1[1]);
-			core.replace(i+2,ST.T1[2],ST.C1[2]);
-			
-			if ( result==1)
-			{	//create a new triangle
-				ofVec2f dump_P;
-				ofFloatColor dump_C;
-				int a1,a2,a3;
-				a1 = core.push( dump_P, dump_C);
-				a2 = core.push( dump_P, dump_C);
-				a3 = core.push( dump_P, dump_C);
-				
-				//copy the original points
-				core.move( a1, i+1);
-				core.move( a2, i+2);
-				core.move( a3, i+2);
-				
-				//make the new point
-				core.replace( a3, ST.T1[3],ST.C1[3]);
-			}
-		break;
-		
-		}
-	}
-}//--------------------------------------------------------------
-static void vah_N_knife_cut( vertex_array_holder& in, vertex_array_holder& out,
-		const ofVec2f* kn0, const ofVec2f* kn1, const ofVec2f* kn2,
-		const ofFloatColor* kC0, const ofFloatColor* kC1,
-		int N)
-{	//an iterative implementation
-	const int MAX_ST = 10;
-	_st_knife_cut ST[MAX_ST];
-	
-	bool kn_colored = kC0 && kC1;
-	
-	if ( N > MAX_ST)
-	{
-		printf("vah_N_knife_cut: max N for current build is %d\n", MAX_ST);
-		N = MAX_ST;
-	}
-	
-	for ( int i=0; i<in.get_count(); i+=3) //each input triangle
-	{
-		int ST_count = 1;
-		ST[0].T1[0] = in.get(i);
-		ST[0].T1[1] = in.get(i+1);
-		ST[0].T1[2] = in.get(i+2);
-			ST[0].C1[0] = in.get_color(i);
-			ST[0].C1[1] = in.get_color(i+1);
-			ST[0].C1[2] = in.get_color(i+2);
-		ST[0].T1c = 3;
-		
-		for ( int k=0; k<N; k++) //each knife
-		{
-			int cur_count = ST_count;
-			for ( int p=0; p<cur_count; p++) //each triangle to be cut
-			{
-				//perform cut
-				if ( ST[p].T1c > 0)
-					if ( kn_colored)
-					triangle_knife_cut( kn0[k], kn1[k], kn2[k],
-							   &kC0[k],&kC1[k],
-								ST[p]);
-					else
-					triangle_knife_cut( kn0[k],kn1[k],kn2[k],
-							    0,0,ST[p]);
-				
-				//push retaining part
-				if ( ST[p].T1c > 0) {
-					out.push( ST[p].T1[0], ST[p].C1[0]);
-					out.push( ST[p].T1[1], ST[p].C1[1]);
-					out.push( ST[p].T1[2], ST[p].C1[2]);
-					if ( ST[p].T1c > 3) {
-						out.push( ST[p].T1[1], ST[p].C1[1]);
-						out.push( ST[p].T1[2], ST[p].C1[2]);
-						out.push( ST[p].T1[3], ST[p].C1[3]);
-					}
-				}
-				
-				//store cut away part to be cut again
-				if ( ST[p].T2c > 0)
-				{
-					ST[p].T1[0] = ST[p].T2[0];
-					ST[p].T1[1] = ST[p].T2[1];
-					ST[p].T1[2] = ST[p].T2[2];
-						ST[p].C1[0] = ST[p].C2[0];
-						ST[p].C1[1] = ST[p].C2[1];
-						ST[p].C1[2] = ST[p].C2[2];
-					ST[p].T1c = 3;
-					
-					if ( ST[p].T2c > 3)
-					{
-						ST[ST_count].T1[0] = ST[p].T2[1];
-						ST[ST_count].T1[1] = ST[p].T2[2];
-						ST[ST_count].T1[2] = ST[p].T2[3];
-							ST[ST_count].C1[0] = ST[p].C2[1];
-							ST[ST_count].C1[1] = ST[p].C2[2];
-							ST[ST_count].C1[2] = ST[p].C2[3];
-						ST[ST_count].T1c = 3;
-						ST_count++;
-					}
-				}
-				else
-				{
-					ST[p].T1c = 0;
-				}
-			}
-		}
-	}
-}
-//--------------------------------------------------------------
-const float cri_core_adapt = 0.0001f;
-//--------------------------------------------------------------
-static void anchor_late( const ofVec2f* P, const ofFloatColor* C, _st_ofxFatLine* SL,
-		vertex_array_holder& tris,
-		ofVec2f cap1, ofVec2f cap2){	
-    const int size_of_P = 3;
-
-	tris.set_gl_draw_mode(GL_TRIANGLES);
-	
-	ofVec2f P_0, P_1, P_2;
-	P_0 = ofVec2f(P[0]);
-	P_1 = ofVec2f(P[1]);
-	P_2 = ofVec2f(P[2]);
-	if ( SL[0].djoint==OFX_FATLINE_CAP_BUTT || SL[0].djoint==OFX_FATLINE_CAP_SQUARE)
-		P_0 -= cap1;
-	if ( SL[2].djoint==OFX_FATLINE_CAP_BUTT || SL[2].djoint==OFX_FATLINE_CAP_SQUARE)
-		P_2 -= cap2;
-	
-	ofVec2f P0, P1, P2, P3, P4, P5, P6, P7;
-	ofVec2f P0r,P1r,P2r,P3r,P4r,P5r,P6r,P7r; //fade
-	
-	P0 = P_1 + SL[1].vP;
-		P0r = P0 + SL[1].vR;
-	P1 = P_1 - SL[1].vP;
-		P1r = P1 - SL[1].vR;
-	
-	P2 = P_1 + SL[1].T1;
-		P2r = P2 + SL[1].R1 + SL[0].bR;
-	P3 = P_0 + SL[0].T;
-		P3r = P3 + SL[0].R;
-	P4 = P_0 - SL[0].T;
-		P4r = P4 - SL[0].R;
-	
-	P5 = P_1 + SL[1].T;
-		P5r = P5 + SL[1].R - SL[1].bR;
-	P6 = P_2 + SL[2].T;
-		P6r = P6 + SL[2].R;
-	P7 = P_2 - SL[2].T;
-		P7r = P7 - SL[2].R;
-		/*annotate( P0,C[0],0);
-		annotate( P1);
-		annotate( P2);
-		annotate( P3);
-		annotate( P4);
-		annotate( P5);
-		annotate( P6);
-		annotate( P7);*/
-	
-	int normal_line_core_joint = 1; //0:dont draw, 1:draw, 2:outer only
-
-	//consider these as inline child functions
-	#define normal_first_ofxFatSegment \
-			tris.push3( P3,  P2,  P1, \
-				  C[0],C[1],C[1]);\
-			tris.push3( P1,  P3,  P4, \
-				  C[1],C[0],C[0])
-	
-	#define normal_last_ofxFatSegment \
-			tris.push3( P1,  P5,  P6, \
-				  C[1],C[1],C[2]);\
-			tris.push3( P1,  P6,  P7, \
-				  C[1],C[2],C[2])
-	
-	ofFloatColor Cpt; //color at PT
-	if ( SL[1].degenT || SL[1].degenR)
-	{
-		float pt = sqrt(SL[1].pt);
-		if ( SL[1].pre_full)
-			Cpt = colorBetween(C[0],C[1], pt);
-		else
-			Cpt = colorBetween(C[1],C[2], 1-pt);
-	}
-	
-	#ifdef VASE_RENDERER_EXPER //unfinished anchor welding 
-	if ( SL[0].ajoin == 1)
-	{	//line core for joining for case 1
-		ofVec2f P8,P9;
-		P8 = SL[0].a1;
-		P9 = SL[0].las_PT;
-		
-		#define cautious_for_degenT \
-		if ( SL[1].degenT)  \
-		{	P1 = SL[1].PT; \
-				P1r = SL[1].PR; \
-		}
-		cautious_for_degenT
-		
-			/*annotate(P0,C[0],0);
-			annotate(P1,C[0],1);
-			annotate(P4,C[0],4);
-			annotate(P5,C[0],5);
-			annotate(P8,C[0],8);
-			annotate(P9,C[0],9);*/
-		tris.push3( P9,  P1,  P4,
-		     SL[0].cc1,C[1],C[0]); //first ofxFatSegment
-		tris.push3( P9,  P1,  P8,
-		     SL[0].cc1,C[1],SL[0].cc2);
-		
-		switch( SL[1].djoint)
-		{
-			case OFX_FATLINE_JOINT_MITER:
-				tris.push3( P0,  P1,  P8,
-					  C[1],C[1],SL[0].cc2);
-				tris.push3( P0,  P1,  P5,
-					  C[1],C[1],C[1]);
-				normal_line_core_joint = 0;
-			break;
-			
-			case OFX_FATLINE_JOINT_BEVEL:
-			case OFX_FATLINE_JOINT_ROUND:
-				tris.push3( P2,  P1,  P8,
-					  C[1],C[1],SL[0].cc2);
-			//rest of the joint to be drawn by "normal line core joint"
-			break;
-		}
-		
-		normal_last_ofxFatSegment;
-		/*else // SL[1].degenT
-		{
-			ofVec2f P8,P9,P10;
-			P8 = SL[0].a1;
-			P9 = SL[0].las_PT;
-			P10= SL[1].PT;
-			//~ annotate(P1,C[0],1);
-			//~ annotate(P2,C[0],2);
-			//~ annotate(P4,C[0],4);
-			//~ annotate(P5,C[0],5);
-			//~ annotate(P8,C[0],8);
-			//~ annotate(P9,C[0],9);
-			//~ annotate(P10,C[0],10);
-			//~ annotate(P6,C[0],6);
-			//~ annotate(P7,C[0],7);
-			
-			push_quad( tris,
-				P9,  P10,  P8,  P2,
-			 SL[0].cc1, C[1],SL[0].cc2,C[1]);
-			push_quad( tris,
-				 P10,  P4,  P2,  P5,
-				C[1],C[1],C[1],C[1]);
-			tris.push3( P4,  P5,  P6,
-				  C[1],C[1],C[2]);
-			tris.push3( P4,  P1,  P6,
-				  C[1],C[0],C[2]);
-			tris.push3( P7,  P1,  P6,
-				  C[2],C[0],C[2]);
-			
-			P1 = SL[1].PT;
-				P1r = SL[1].PR;
-			normal_line_core_joint = 2;
-		}*/
-	}
-	else if ( SL[0].ajoin == 3)
-	{	//joining for case 3
-		cautious_for_degenT
-		ofVec2f P8,P9;
-		P8 = SL[0].a1;
-		P9 = SL[0].las_PT;
-			/*annotate(P1,C[0],1);
-			annotate(P4,C[0],4);
-			annotate(P5,C[0],5);
-			annotate(P8,C[0],8);
-			annotate(P9,C[0],9);*/
-		
-		push_quad( tris,
-			P4,  P9,  P1,  P8,
-		      C[0],SL[0].cc1,C[1],SL[0].cc2);
-		tris.push3(  P1,  P8,  P5,
-			C[1],SL[0].cc2,C[1]);
-		
-		if ( SL[1].djoint == OFX_FATLINE_JOINT_ROUND)
-			normal_line_core_joint = 2;
-		else
-			normal_line_core_joint = 0;
-		normal_last_ofxFatSegment;
-	}
-	else if ( SL[0].ajoin == 2)
-	{	//case 2
-		//first ofxFatSegment
-		cautious_for_degenT
-	#undef cautious_for_degenT
-		ofVec2f P8 = SL[0].a2;
-		ofVec2f P9 = SL[0].las_PT;
-		ofVec2f P10 = SL[0].a1;
-			/*annotate(lP0,C[0],0);
-			annotate(P1,C[0],1);
-			annotate(P4,C[0],4);
-			annotate(P5,C[0],5);
-			annotate(P8,C[0],8);
-			annotate(P9,C[0],9);
-			annotate(P10,C[0],10);*/
-		
-		switch( SL[1].djoint)
-		{
-			case OFX_FATLINE_JOINT_MITER:
-				tris.push3( P10,  P8,  P0,
-				SL[0].cc1,SL[0].cc1,C[1]);
-				tris.push3( P5,  P8,   P0,
-					C[1],SL[0].cc1,C[1]);
-				tris.push3( P5,  P8,  P1,
-					C[1],SL[0].cc1,C[1]);
-				
-				tris.push3( P1,  P8,  P9,
-					C[1],SL[0].cc1,SL[0].cc2);
-				tris.push3( P1,  P4,  P9,
-					C[1],  C[0],SL[0].cc2);
-				normal_line_core_joint = 0;
-			break;
-			
-			case OFX_FATLINE_JOINT_ROUND:
-			case OFX_FATLINE_JOINT_BEVEL:
-				tris.push3( P10,  P5,  P2,
-				SL[0].cc1,C[1],C[1]);
-				tris.push3( P5,  P8,  P10,
-					C[1],SL[0].cc1,SL[0].cc1);
-				tris.push3( P5,  P8,  P1,
-					C[1],SL[0].cc1,C[1]);
-				
-				tris.push3( P1,  P8,  P9,
-					C[1],SL[0].cc1,SL[0].cc2);
-				tris.push3( P1,  P4,  P9,
-					C[1],  C[0],SL[0].cc2);
-				
-				if ( SL[1].djoint == OFX_FATLINE_JOINT_BEVEL)
-					normal_line_core_joint = 0;
-				else //OFX_FATLINE_JOINT_ROUND
-					normal_line_core_joint = 2;
-			break;
-		}
-			
-		normal_last_ofxFatSegment;
-	}
-	else
-	#endif //VASE_RENDERER_EXPER
-	if ( SL[1].degenT)
-	{	//degen line core
-		P1 = SL[1].PT;
-			P1r = SL[1].PR;
-		
-		tris.push3( P3,  P2,  P1,
-			  C[0],C[1],C[1]); //fir seg
-		tris.push3( P1,  P5,  P6,
-			  C[1],C[1],C[2]); //las seg
-		
-		if ( SL[1].pre_full)
-		{	tris.push3( P1,  P3,  P4,
-				  C[1],C[0],C[0]);
-		}
-		else
-		{	tris.push3( P1,  P6,  P7,
-				  C[1],C[2],C[2]);
-		}
-	}
-	else if ( SL[1].degenR && SL[1].pt > cri_core_adapt) //&& ! SL[1].degenT
-	{	//line core adapted for degenR
-		if ( SL[1].pre_full)
-		{
-			normal_last_ofxFatSegment;
-
-			//special first ofxFatSegment
-			ofVec2f P9 = SL[1].PT;
-			tris.push3( P3,  P2,  P1,
-				  C[0],C[1],C[1]);
-			tris.push3( P3,  P9,  P1,
-				  C[0], Cpt,C[1]);
-			tris.push3( P3,  P9,  P4,
-				  C[0], Cpt,C[0]);
-		}
-		else
-		{
-			normal_first_ofxFatSegment;
-			
-			//special last ofxFatSegment
-			ofVec2f P9 = SL[1].PT;
-			push_quad( tris,
-				  P5,  P1,  P6,  P9,
-				C[1],C[1],C[2], Cpt);
-			tris.push3( P7,  P9,  P6,
-				  C[2], Cpt,C[2]);
-				/*annotate(P1,C[1],1);
-				annotate(P5,C[1],5);
-				annotate(P6,C[1],6);
-				annotate(P7,C[1],7);
-				annotate(P9,C[1],9);*/
-		}
-	}
-	else
-	{
-		normal_first_ofxFatSegment;
-		normal_last_ofxFatSegment;
-	#undef normal_first_ofxFatSegment
-	#undef normal_last_ofxFatSegment
-	}
-	
-	if (normal_line_core_joint)
-	{
-		switch( SL[1].djoint)
-		{
-			case OFX_FATLINE_JOINT_MITER:
-				tris.push3( P2,  P5,  P0,
-					  C[1],C[1],C[1]);
-			case OFX_FATLINE_JOINT_BEVEL:
-				if ( normal_line_core_joint==1)
-				tris.push3( P2,  P5,  P1,
-					  C[1],C[1],C[1]);
-			break;
-			
-			case OFX_FATLINE_JOINT_ROUND: {
-				vertex_array_holder strip;
-				strip.set_gl_draw_mode(GL_TRIANGLE_STRIP);
-				
-			if ( normal_line_core_joint==1)
-				vectors_to_arc( strip, P_1, C[1], C[1],
-				SL[1].T1, SL[1].T,
-				get_OFX_FATLINE_JOINT_ROUND_dangle(SL[1].t,SL[1].r),
-				SL[1].t, 0.0f, false, &P1);
-			else if ( normal_line_core_joint==2)
-				vectors_to_arc( strip, P_1, C[1], C[1],
-				SL[1].T1, SL[1].T,
-				get_OFX_FATLINE_JOINT_ROUND_dangle(SL[1].t,SL[1].r),
-				SL[1].t, 0.0f, false, &P5);
-				
-				tris.push(strip);
-			} break;
-		}
-	}
-	
-	if ( SL[1].degenR)
-	{	//degen inner fade
-		ofVec2f P9 = SL[1].PT;
-			ofVec2f P9r = SL[1].PR;
-		
-		ofFloatColor ccpt=Cpt;
-		if ( SL[1].degenT)
-			ccpt = C[1];
-		
-		if ( SL[1].pre_full)
-		{	push_quad( tris,
-				    P9,  P4, P9r, P4r,
-				  ccpt,C[0],C[1],C[0],
-				     0,   0,   1,   1); //fir seg
-
-			if ( !SL[1].degenT)
-			{
-				ofVec2f mid = midpoint(P9,P7);
-				tris.push3( P1,  P9, mid,
-					  C[1], Cpt,C[1],
-					     0,   0,   1);
-				tris.push3( P1,  P7, mid,
-					  C[1],C[2],C[1],
-					     0,   0,   1);
-			}
-		}
-		else
-		{	push_quad( tris,
-				    P9,  P7, P9r, P7r,
-				  ccpt,C[2],C[1],C[2],
-				     0,   0,   1,   1); //las seg
-			
-			if ( !SL[1].degenT)
-			{
-				ofVec2f mid = midpoint(P9,P4);
-				tris.push3( P1,  P9, mid,
-					  C[1], Cpt,C[1],
-					     0,   0,   1);
-				tris.push3( P1,  P4, mid,
-					  C[1],C[0],C[1],
-					     0,   0,   1);
-			}
-		}
-	}
-	else
-	{	//normal inner fade
-		push_quad( tris,
-			    P1,  P4, P1r, P4r,
-			  C[1],C[0],C[1],C[0],
-			     0,   0,   1,   1); //fir seg
-		push_quad( tris,
-			    P1,  P7, P1r, P7r,
-			  C[1],C[2],C[1],C[2],
-			     0,   0,   1,   1); //las seg
-	}
-	
-	{	//outer fade, whether degen or normal
-		push_quad( tris,
-			    P2,  P3, P2r, P3r,
-			  C[1],C[0],C[1],C[0],
-			     0,   0,   1,   1); //fir seg
-		push_quad( tris,
-			    P5,  P6, P5r, P6r,
-			  C[1],C[2],C[1],C[2],
-			     0,   0,   1,   1); //las seg
-		switch( SL[1].djoint)
-		{	//line fade joint
-			case OFX_FATLINE_JOINT_MITER:
-				push_quad( tris,
-					    P0,  P5, P0r, P5r,
-					  C[1],C[1],C[1],C[1],
-					     0,   0,   1,   1);
-				push_quad( tris,
-					    P0,  P2, P0r, P2r,
-					  C[1],C[1],C[1],C[1],
-					     0,   0,   1,   1);
-			break;
-			case OFX_FATLINE_JOINT_BEVEL:
-				push_quad( tris,
-					    P2,  P5, P2r, P5r,
-					  C[1],C[1],C[1],C[1],
-					     0,   0,   1,   1);
-			break;
-			
-			case OFX_FATLINE_JOINT_ROUND: {
-				vertex_array_holder strip;
-				strip.set_gl_draw_mode(GL_TRIANGLE_STRIP);
-				ofFloatColor C2 = C[1]; C2.a = 0.0f;
-				vectors_to_arc( strip, P_1, C[1], C2,
-				SL[1].T1, SL[1].T,
-				get_OFX_FATLINE_JOINT_ROUND_dangle(SL[1].t,SL[1].r),
-				SL[1].t, SL[1].t+SL[1].r, false, 0);
-				
-				tris.push(strip);
-			} break;
-		}
-	}
-	
-	{	//caps
-	for ( int i=0,k=0; k<=1; i=size_of_P-1, k++)
-	{
-		ofVec2f& cur_cap = i==0? cap1:cap2;
-		if ( non_zero(cur_cap))
-		{			
-			vertex_array_holder cap;
-			cap.set_gl_draw_mode(GL_TRIANGLES);
-			bool perform_cut = ( SL[1].degenR && SL[1].R_full_degen) &&
-					((k==0 && !SL[1].pre_full) ||
-					 (k==1 &&  SL[1].pre_full) );
-			
-			ofVec2f P3 = ofVec2f(P[i])-SL[i].T*2-SL[i].R+cur_cap;
-			
-			if ( SL[i].djoint == OFX_FATLINE_CAP_ROUND)
-			{	//round caps
-				{	vertex_array_holder strip;
-					strip.set_gl_draw_mode(GL_TRIANGLE_STRIP);
-					
-					ofFloatColor C2 = C[i]; C2.a = 0.0f;
-					ofVec2f O  = ofVec2f(P[i]);
-					ofVec2f app_P = O+SL[i].T;
-					ofVec2f bR = SL[i].bR;
-					follow_signs(bR, cur_cap);
-					float dangle = get_OFX_FATLINE_JOINT_ROUND_dangle(SL[i].t,SL[i].r);
-					
-					vectors_to_arc( strip, O, C[i], C[i],
-					SL[i].T+bR, -SL[i].T+bR,
-					dangle,
-					SL[i].t, 0.0f, false, &app_P);
-						strip.push( O-SL[i].T,C[i]);
-						strip.push( app_P,C[i]);
-					
-					strip.jump();
-					
-					{	ofVec2f a1 = O+SL[i].T;
-						ofVec2f a2 = O+SL[i].T*(1/SL[i].t)*(SL[i].t+SL[i].r);
-						ofVec2f b1 = O-SL[i].T;
-						ofVec2f b2 = O-SL[i].T*(1/SL[i].t)*(SL[i].t+SL[i].r);
-						
-							strip.push( a1,C[i]);
-							strip.push( a2,C2);
-						vectors_to_arc( strip, O, C[i], C2,
-						SL[i].T+bR, -SL[i].T+bR,
-						dangle,
-						SL[i].t, SL[i].t+SL[i].r, false, 0);						
-							strip.push( b1,C[i]);
-							strip.push( b2,C2);
-					}
-					cap.push(strip);
-				}
-				if ( perform_cut)
-				{
-					ofVec2f P4k;
-					if ( !SL[1].pre_full)
-						P4k = P7; //or P7r ?
-					else
-						P4k = P4;
-					
-					vah_knife_cut( cap, SL[1].PT, P4k, P3);
-					/*annotate(SL[1].PT,C[i],0);
-					annotate(P3,C[i],3);
-					annotate(P4k,C[i],4);*/
-				}
-			}
-			else //if ( SL[i].djoint == OFX_FATLINE_CAP_BUTT | SL[i].cap == OFX_FATLINE_CAP_SQUARE | SL[i].cap == OFX_FATLINE_CAP_RECT)
-			{	//rectangle caps
-				ofVec2f P_cur = P[i];
-				bool degen_nxt=0, degen_las=0;
-				if ( k == 0)
-					if ( SL[0].djoint==OFX_FATLINE_CAP_BUTT || SL[0].djoint==OFX_FATLINE_CAP_SQUARE)
-						P_cur -= cap1;
-				if ( k == 1)
-					if ( SL[2].djoint==OFX_FATLINE_CAP_BUTT || SL[2].djoint==OFX_FATLINE_CAP_SQUARE)
-						P_cur -= cap2;
-				
-				ofVec2f P0,P1,P2,P3,P4,P5,P6;
-				
-				P0 = P_cur+SL[i].T+SL[i].R;
-				P1 = P0+cur_cap;
-				P2 = P_cur+SL[i].T;
-				P4 = P_cur-SL[i].T;
-				P3 = P4-SL[i].R+cur_cap;
-				P5 = P4-SL[i].R;
-				
-				cap.push( P0, C[i],true);
-				cap.push( P1, C[i],true);
-				cap.push( P2, C[i]);
-				
-						cap.push( P1, C[i],true);
-					cap.push( P2, C[i]);
-				cap.push( P3, C[i],true);
-				
-						cap.push( P2, C[i]);
-					cap.push( P3, C[i],true);
-				cap.push( P4, C[i]);
-				
-						cap.push( P3, C[i],true);
-					cap.push( P4, C[i]);
-				cap.push( P5, C[i],true);
-				//say if you want to use triangle strip,
-				//  just push P0~ P5 in sequence
-				if ( perform_cut)
-				{
-					vah_knife_cut( cap, SL[1].PT, SL[1].PR, P3);
-					/*annotate(SL[1].PT,C[i],0);
-					annotate(SL[1].PR);
-					annotate(P3);
-					annotate(P4);*/
-				}
-			}
-			//tris.push(cap);
-			cap.draw();
-		}
-	}
-	}
-} //anchor_late
-//--------------------------------------------------------------
-static void ofxFatSegment_late( const ofVec2f* P, const ofFloatColor* C, _st_ofxFatLine* SL,
-		vertex_array_holder& tris,
-		ofVec2f cap1, ofVec2f cap2)
-{
-	tris.set_gl_draw_mode(GL_TRIANGLES);
-	
-	ofVec2f P_0, P_1, P_2;
-	P_0 = ofVec2f(P[0]);
-	P_1 = ofVec2f(P[1]);
-	if ( SL[0].djoint==OFX_FATLINE_CAP_BUTT || SL[0].djoint==OFX_FATLINE_CAP_SQUARE)
-		P_0 -= cap1;
-	if ( SL[1].djoint==OFX_FATLINE_CAP_BUTT || SL[1].djoint==OFX_FATLINE_CAP_SQUARE)
-		P_1 -= cap2;
-	
-	ofVec2f P1, P2, P3, P4;  //core
-	ofVec2f P1c,P2c,P3c,P4c; //cap
-	ofVec2f P1r,P2r,P3r,P4r; //fade
-
-	P1 = P_0 + SL[0].T;
-		P1r = P1 + SL[0].R;
-		P1c = P1r + cap1;
-	P2 = P_0 - SL[0].T;
-		P2r = P2 - SL[0].R;
-		P2c = P2r + cap1;
-	P3 = P_1 + SL[1].T;
-		P3r = P3 + SL[1].R;
-		P3c = P3r + cap2;
-	P4 = P_1 - SL[1].T;
-		P4r = P4 - SL[1].R;
-		P4c = P4r + cap2;
-	//core
-	push_quad( tris,
-		  P1,  P2,  P3,  P4,
-		C[0],C[0],C[1],C[1] );
-	//fade
-	push_quad( tris,
-		  P1, P1r,  P3, P3r,
-		C[0],C[0],C[1],C[1],
-		   0,   1,   0,   1 );
-	push_quad( tris,
-		  P2, P2r,  P4, P4r,
-		C[0],C[0],C[1],C[1],
-		   0,   1,   0,   1 );
-	//caps
-	for ( int j=0; j<2; j++)
-	{
-		vertex_array_holder cap;
-		cap.set_gl_draw_mode(GL_TRIANGLE_STRIP);
-		
-		if ( SL[j].djoint == OFX_FATLINE_CAP_ROUND)
-		{	//round cap
-			ofFloatColor C2 = C[j]; C2.a = 0.0f;
-			ofVec2f O  = ofVec2f(P[j]);
-			ofVec2f app_P = O+SL[j].T;
-			ofVec2f bR = SL[j].bR;
-			follow_signs(bR, j==0?cap1:cap2);
-			float dangle = get_OFX_FATLINE_JOINT_ROUND_dangle(SL[j].t,SL[j].r);
-			
-			vectors_to_arc( cap, O, C[j], C[j],
-			SL[j].T+bR, -SL[j].T+bR,
-			dangle,
-			SL[j].t, 0.0f, false, &app_P);
-				cap.push( O-SL[j].T,C[j]);
-				cap.push( app_P,C[j]);
-			
-			cap.jump();
-			
-			{	//fade
-				ofVec2f a1 = O+SL[j].T;
-				ofVec2f a2 = O+SL[j].T*(1/SL[j].t)*(SL[j].t+SL[j].r);
-				ofVec2f b1 = O-SL[j].T;
-				ofVec2f b2 = O-SL[j].T*(1/SL[j].t)*(SL[j].t+SL[j].r);
-				
-					cap.push( a1,C[j]);
-					cap.push( a2,C2);
-				vectors_to_arc( cap, O, C[j], C2,
-				SL[j].T+bR, -SL[j].T+bR,
-				dangle,
-				SL[j].t, SL[j].t+SL[j].r, false, 0);						
-					cap.push( b1,C[j]);
-					cap.push( b2,C2);
-			}
-		}
-		else //if ( SL[j].djoint == OFX_FATLINE_CAP_BUTT | SL[j].cap == OFX_FATLINE_CAP_SQUARE | SL[j].cap == OFX_FATLINE_CAP_RECT)
-		{	//rectangle cap
-			ofVec2f Pj,Pjr,Pjc, Pk,Pkr,Pkc;
-			if ( j==0)
-			{
-				Pj = P1;
-				Pjr= P1r;
-				Pjc= P1c;
-				
-				Pk = P2;
-				Pkr= P2r;
-				Pkc= P2c;
-			}
-			else
-			{
-				Pj = P3;
-				Pjr= P3r;
-				Pjc= P3c;
-				
-				Pk = P4;
-				Pkr= P4r;
-				Pkc= P4c;
-			}
-			
-			cap.push( Pkr, C[j], 1);
-			cap.push( Pkc, C[j], 1);
-			cap.push( Pk , C[j], 0);
-			cap.push( Pjc, C[j], 1);
-			cap.push( Pj , C[j], 0);
-			cap.push( Pjr, C[j], 1);
-		}
-		//tris.push(cap);
-		cap.draw();
-	}
-	
-	/*annotate(P1,C[0],1);
-	annotate(P2,C[0],2);
-	annotate(P3,C[0],3);
-	annotate(P4,C[0],4);
-		annotate(P1c,C[0],11);
-		annotate(P2c,C[0],21);
-		annotate(P3c,C[0],31);
-		annotate(P4c,C[0],41);
-		
-		annotate(P1r,C[0],12);
-		annotate(P2r,C[0],22);
-		annotate(P3r,C[0],32);
-		annotate(P4r,C[0],42);
-	*/
-}
-//--------------------------------------------------------------
-static void ofxFatSegment_( const ofVec2f* inP, const ofFloatColor* inC, const double* weight, const ofxFatLineOptions* options, 
-		bool cap_first, bool cap_last, char last_cap_type=-1)
-{
-	if ( !inP || !inC || !weight) return;
-	
-	ofVec2f  P[2]; P[0]=inP[0]; P[1]=inP[1];
-	ofFloatColor C[2]; C[0]=inC[0]; C[1]=inC[1];
-	
-	ofxFatLineOptions opt;
-	if ( options)
-		opt = (*options);
-	
-	ofVec2f T1,T2;
-	ofVec2f R1,R2;
-	ofVec2f bR;
-	double t,r;
-	
-	bool varying_weight = !(weight[0]==weight[1]);
-	
-	ofVec2f cap_start, cap_end;
-	_st_ofxFatLine SL[2];
-	
-	for ( int i=0; i<2; i++){
-		if ( weight[i]>=0.0 && weight[i]<1.0){
-			double f=weight[i]-static_cast<int>(weight[i]);
-			C[i].a *=f;
-		}
-	}
-	
-	{	int i=0;
-		make_T_R_C( ofVec2f(P[i]), ofVec2f(P[i+1]), &T2,&R2,&bR, weight[i],opt, &r,&t,0, true);
-		
-		if ( cap_first){
-			if ( opt.cap==OFX_FATLINE_CAP_SQUARE){
-				P[0] = ofVec2f(P[0]) - bR * (t+r);
-			}
-			cap_start = bR;
-			makeOpposite(cap_start); if ( opt.feather && !opt.no_feather_at_cap)
-			cap_start*=opt.feathering;
-		}
-		
-		SL[i].djoint=opt.cap;
-		SL[i].t=t;
-		SL[i].r=r;
-		SL[i].T=T2;
-		SL[i].R=R2;
-		SL[i].bR=bR*0.01;
-		SL[i].degenT = false;
-		SL[i].degenR = false;
-	}
-	
-	{	int i=1;
-		if ( varying_weight)
-			make_T_R_C( P[i-1],P[i], &T2,&R2,&bR,weight[i],opt, &r,&t,0, true);
-		
-		last_cap_type = last_cap_type==-1 ? opt.cap:last_cap_type;
-		
-		if ( cap_last)
-		{
-			if ( last_cap_type==OFX_FATLINE_CAP_SQUARE)
-			{
-				P[1] = ofVec2f(P[1]) + bR * (t+r);
-			}
-			cap_end = bR;
-			if ( opt.feather && !opt.no_feather_at_cap)
-				cap_end*=opt.feathering;
-		}
-		
-		SL[i].djoint = last_cap_type;
-		SL[i].t=t;
-		SL[i].r=r;
-		SL[i].T=T2;
-		SL[i].R=R2;
-		SL[i].bR=bR*0.01;
-		SL[i].degenT = false;
-		SL[i].degenR = false;
-	}
-	
-	{	vertex_array_holder tris;
-		ofxFatSegment_late( P,C,SL, tris,cap_start,cap_end);
-		tris.draw();
-	}
-}
-//--------------------------------------------------------------
-static int anchor( _st_anchor& SA, const ofxFatLineOptions* options,
-		bool cap_first, bool cap_last)
-{
-	ofxFatLineOptions opt;
-	if ( options)
-		opt = (*options);
-	
-	ofVec2f*  P = SA.P;
-	ofFloatColor* C = SA.C;
-	double* weight = SA.W;
-	
-	_st_ofxFatLine* SL = SA.SL;
-	SA.vah.set_gl_draw_mode(GL_TRIANGLES);
-	SA.cap_start = ofVec2f();
-	SA.cap_end = ofVec2f();
-	
-	//const double critical_angle=11.6538;
-	//~ critical angle in degrees where a miter is force into bevel
-	//~   it is _similar_ to cairo_set_miter_limit ()
-	//~   but cairo works with ratio while VaseR work with included angle
-	const double cos_cri_angle=0.979386; //cos(critical_angle)
-	
-	bool varying_weight = !(weight[0]==weight[1] & weight[1]==weight[2]);
-	
-	//~ critical weight to do approximation rather than real joint processing
-	const double cri_approx=1.6;
-	if ( weight[0] < cri_approx && weight[1] < cri_approx && weight[2] < cri_approx)
-	{
-		ofxFatSegment_( P,C,weight,&opt, cap_first,false, opt.joint==OFX_FATLINE_JOINT_ROUND?OFX_FATLINE_CAP_ROUND:OFX_FATLINE_CAP_BUTT);
-		{
-			char ori_cap = opt.cap;
-			opt.cap = opt.joint==OFX_FATLINE_JOINT_ROUND?OFX_FATLINE_CAP_ROUND:OFX_FATLINE_CAP_BUTT;
-			ofxFatSegment_( &P[1],&C[1],&weight[1],&opt, false,cap_last, ori_cap);
-		}
-		return 0;
-	}
-	
-	ofVec2f T1,T2,T21,T31;		//]these are for calculations in early stage
-	ofVec2f R1,R2,R21,R31;		//]
-	
-	for ( int i=0; i<3; i++)
-	{	//lower the transparency for weight < 1.0
-		if ( weight[i]>=0.0 && weight[i]<1.0)
-		{
-			double f=weight[i];
-			C[i].a *=f;
-		}
-	}
-	
-	{	int i=0;
-	
-		ofVec2f cap1;
-		double r,t;		
-		make_T_R_C( ofVec2f(P[i]), ofVec2f(P[i+1]), &T2,&R2,&cap1, weight[i],opt, &r,&t,0);
-		if ( varying_weight) {
-		make_T_R_C( ofVec2f(P[i]), ofVec2f(P[i+1]), &T31,&R31,0, weight[i+1],opt, 0,0,0);
-		} else {
-			T31 = T2;
-			R31 = R2;
-		}
-		anchor_outward(R2, P[i+1],P[i+2] /*,inward_first->value()*/);
-			follow_signs(T2, R2);
-		
-		SL[i].bR=cap1;
-		
-		if ( cap_first)
-		{
-			if ( opt.cap==OFX_FATLINE_CAP_SQUARE)
-			{
-				P[0] = ofVec2f(P[0]) - cap1 * (t+r);
-			}
-			makeOpposite(cap1); if ( opt.feather && !opt.no_feather_at_cap)
-			cap1*=opt.feathering;
-			SA.cap_start = cap1;
-		}
-		
-		SL[i].djoint=opt.cap;
-		SL[i].T=T2;
-		SL[i].R=R2;
-		SL[i].t=(float)t;
-		SL[i].r=(float)r;
-		SL[i].degenT = false;
-		SL[i].degenR = false;
-		SL[i].ajoin = 0;
-		
-		SL[i+1].T1=T31;
-		SL[i+1].R1=R31;
-	}
-	
-	if ( cap_last)
-	{	int i=2;
-
-		ofVec2f cap2;
-		double t,r;
-		make_T_R_C( P[i-1],P[i], 0,0,&cap2,weight[i],opt, &r,&t,0);
-		if ( opt.cap==OFX_FATLINE_CAP_SQUARE)
-		{
-			P[2] = ofVec2f(P[2]) + cap2 * (t+r);
-		}
-		
-		SL[i].bR=cap2;
-		
-		if ( opt.feather && !opt.no_feather_at_cap)
-			cap2*=opt.feathering;
-		SA.cap_end = cap2;
-	}
-	
-	{	int i=1;
-	
-		double r,t;
-		ofVec2f P_cur = P[i]; //current point //to avoid calling constructor repeatedly
-		ofVec2f P_nxt = P[i+1]; //next point
-		ofVec2f P_las = P[i-1]; //last point
-		if ( opt.cap==OFX_FATLINE_CAP_BUTT || opt.cap==OFX_FATLINE_CAP_SQUARE)
-		{
-			P_nxt -= SA.cap_end;
-			P_las -= SA.cap_start;
-		}
-		
-		{
-		ofVec2f bR; float length_cur, length_nxt;
-		make_T_R_C( P_las, P_cur,  &T1,&R1, 0, weight[i-1],opt,0,0, &length_cur);
-		if ( varying_weight) {
-		make_T_R_C( P_las, P_cur, &T21,&R21,0, weight[i],opt,  0,0,0);
-		} else {
-			T21 = T1;
-			R21 = R1;
-		}
-		
-		make_T_R_C( P_cur, P_nxt,  &T2,&R2,&bR, weight[i],opt, &r,&t, &length_nxt);
-		if ( varying_weight) {
-		make_T_R_C( P_cur, P_nxt, &T31,&R31,0, weight[i+1],opt, 0,0,0);
-		} else {
-			T31 = T2;
-			R31 = R2;
-		}
-		
-		SL[i].T=T2;
-		SL[i].R=R2;
-		SL[i].bR=bR;
-		SL[i].t=(float)t;
-		SL[i].r=(float)r;
-		SL[i].degenT = false;
-		SL[i].degenR = false;
-		SL[i].ajoin = 0;
-		
-		SL[i+1].T1=T31;
-		SL[i+1].R1=R31;
-		}
-		
-		{	//2nd to 2nd last point
-			
-			//find the angle between the 2 line ofxFatSegments
-			ofVec2f ln1,ln2, V;
-			ln1 = P_cur - P_las;
-			ln2 = P_nxt - P_cur;
-			ln1.normalize();
-			ln2.normalize();
-			dot(ln1,ln2, V);
-			double cos_tho=-V.x-V.y;
-			bool zero_degree = negligible(cos_tho-1);
-			bool d180_degree = cos_tho < -1+0.0001;
-			bool smaller_than_30_degree = cos_tho > 0.8660254;
-			int result3 = 1;
-			
-			if ( (cos_tho < 0 && opt.joint==OFX_FATLINE_JOINT_BEVEL) ||
-			     (opt.joint!=OFX_FATLINE_JOINT_BEVEL && opt.cap==OFX_FATLINE_CAP_ROUND) ||
-			     (opt.joint==OFX_FATLINE_JOINT_ROUND)
-			   )
-			{	//when greater than 90 degrees
-				SL[i-1].bR *= 0.01;
-				SL[i]  .bR *= 0.01;
-				SL[i+1].bR *= 0.01;
-				//to solve an overdraw in bevel and round joint
-			}
-			
-			anchor_outward( T1, P_cur,P_nxt);
-            follow_signs(R1, T1);
-			anchor_outward( T21, P_cur,P_nxt);
-			follow_signs(R21, T21);
-				follow_signs(SL[i].T1,T21);
-				follow_signs(SL[i].R1, T21);
-			anchor_outward( T2, P_cur,P_las);
-				follow_signs(R2, T2);
-				follow_signs(SL[i].T, T2);
-				follow_signs(SL[i].R,T2);
-			anchor_outward( T31, P_cur,P_las);
-				follow_signs(R31, T31);
-			
-			{ //must do intersection
-				ofVec2f interP, vP;
-				result3 = intersect( P_las+T1, P_cur+T21,
-							P_nxt+T31, P_cur+T2,
-							interP);
-				
-				if ( result3) {
-					vP = interP - P_cur;
-					SL[i].vP=vP;
-					SL[i].vR=vP*(r/t);
-				} else {
-					SL[i].vP=SL[i].T;
-					SL[i].vR=SL[i].R;
-					//DEBUG( "intersection failed: cos(angle)=%.4f, angle=%.4f(degree)\n", cos_tho, acos(cos_tho)*180/3.14159);
-				}
-			}
-			
-			makeOpposite(T1);		//]inward
-            makeOpposite(R1);
-			makeOpposite(T21);
-			makeOpposite(R21);
-			makeOpposite(T2);
-			makeOpposite(R2);
-			makeOpposite(T31);
-			makeOpposite(R31);
-			
-			//make intersections
-			ofVec2f PR1,PR2, PT1,PT2;
-			double pt1,pt2;
-			
-			int result1r = intersect( P_nxt-T31-R31, P_nxt+T31+R31,
-						P_las+T1+R1, P_cur+T21+R21, //knife1
-						PR1); //fade
-			int result2r = intersect( P_las-T1-R1, P_las+T1+R1,
-						P_nxt+T31+R31, P_cur+T2+R2, //knife2
-						PR2);
-			bool is_result1r = result1r == 1;
-			bool is_result2r = result2r == 1;
-			//
-			int result1t = intersect( P_nxt-T31, P_nxt+T31,
-						P_las+T1, P_cur+T21, //knife1_a
-						PT1, 0,&pt1); //core
-			int result2t = intersect( P_las-T1, P_las+T1,
-						P_nxt+T31, P_cur+T2, //knife2_a
-						PT2, 0,&pt2);
-			bool is_result1t = result1t == 1;
-			bool is_result2t = result2t == 1;
-			//
-			if ( zero_degree)
-			{
-				bool pre_full = is_result1t;
-				opt.no_feather_at_cap=true;
-				if ( pre_full)
-				{
-					ofxFatSegment_( P,C,weight,&opt, true,cap_last, opt.joint==OFX_FATLINE_JOINT_ROUND?OFX_FATLINE_CAP_ROUND:OFX_FATLINE_CAP_BUTT);
-				}
-				else
-				{
-					char ori_cap = opt.cap;
-					opt.cap = opt.joint==OFX_FATLINE_JOINT_ROUND?OFX_FATLINE_CAP_ROUND:OFX_FATLINE_CAP_BUTT;
-					ofxFatSegment_( &P[1],&C[1],&weight[1],&opt, true,cap_last, ori_cap);
-				}
-				return 0;
-			}
-			
-			if ( is_result1r | is_result2r)
-			{	//fade degeneration
-				SL[i].degenR=true;
-				SL[i].PT = is_result1r? PT1:PT2; //this is is_result1r!!
-				SL[i].PR = is_result1r? PR1:PR2;
-				SL[i].pt = float(is_result1r? pt1:pt2);
-					if ( SL[i].pt < 0)
-						SL[i].pt = cri_core_adapt;
-				SL[i].pre_full = is_result1r;
-				SL[i].R_full_degen = false;
-				
-				ofVec2f P_nxt = P[i+1]; //override that in the parent scope
-				ofVec2f P_las = P[i-1];
-				ofVec2f PR;
-				if ( opt.cap==OFX_FATLINE_CAP_RECT || opt.cap==OFX_FATLINE_CAP_ROUND)
-				{
-					P_nxt += SA.cap_end;
-					P_las += SA.cap_start;
-				}
-				int result2;
-				if ( is_result1r)
-				{
-					result2 = intersect( P_nxt-T31-R31, P_nxt+T31,
-						P_las+T1+R1, P_cur+T21+R21, //knife1
-						PR); 	//fade
-				}
-				else
-				{
-					result2 = intersect( P_las-T1-R1, P_las+T1,
-						P_nxt+T31+R31, P_cur+T2+R2, //knife2
-						PR);
-				}
-				if ( result2 == 1)
-				{
-					SL[i].R_full_degen = true;
-					SL[i].PR = PR;
-				}
-			}
-			
-			if ( is_result1t | is_result2t)
-			{	//core degeneration
-				SL[i].degenT=true;
-				SL[i].pre_full=is_result1t;
-				SL[i].PT = is_result1t? PT1:PT2;
-				SL[i].pt = float(is_result1t? pt1:pt2);
-			}
-			
-			//make joint
-			SL[i].djoint = opt.joint;
-			if ( opt.joint == OFX_FATLINE_JOINT_MITER)
-				if ( cos_tho >= cos_cri_angle)
-					SL[i].djoint=OFX_FATLINE_JOINT_BEVEL;
-			
-			/*if ( varying_weight && smaller_than_30_degree)
-			{	//not sure why, but it appears to solve a visual bug for varing weight
-				ofVec2f interR,vR;
-				int result3 = intersect( P_las-T1-R1, P_cur-T21-R21,
-							P_nxt-T31-R31, P_cur-T2-R2,
-							interR);
-				SL[i].vR = P_cur-interR-SL[i].vP;
-				annotate(interR,C[i],9);
-				draw_vector(P_las-T1-R1, P_cur-T21-R21 - P_las+T1+R1,"1");
-				draw_vector(P_nxt-T31-R31, P_cur-T2-R2 - P_nxt+T31+R31,"2");
-			}*/
-			
-			if ( d180_degree | !result3)
-			{	//to solve visual bugs 3 and 1.1
-				//efficiency: if color and weight is same as previous and next point
-				// ,do not generate vertices
-				same_side_of_line( SL[i].R, SL[i-1].R, P_cur,P_las);
-					follow_signs(SL[i].T, SL[i].R);
-				SL[i].vP=SL[i].T;
-				SL[i].vR=SL[i].R;
-				SL[i].djoint=OFX_FATLINE_JOINT_MITER;
-			}
-		} //2nd to 2nd last point
-	}
-	
-	{	int i=2;
-
-		double r,t;
-		make_T_R_C( P[i-1],P[i], &T2,&R2,0,weight[i],opt,  &r,&t,0);
-			same_side_of_line( R2, SL[i-1].R, P[i-1],P[i]);
-				follow_signs(T2, R2);
-		
-		SL[i].djoint=opt.cap;
-		SL[i].T=T2;
-		SL[i].R=R2;
-		SL[i].t=(float)t;
-		SL[i].r=(float)r;
-		SL[i].degenT = false;
-		SL[i].degenR = false;
-		SL[i].ajoin = 0;
-	}
-	
-	return 1;
-} //anchor
-
-#ifdef VASE_RENDERER_EXPER
-void anchor_weld( const _st_anchor& SA, _st_anchor& SB)
-{	//additional welding between anchors
-	if ( SA.SL[1].degenR && SA.SL[1].pre_full)
-	{
-		ofVec2f  P1[2], P2[2], P3[2], P4[2];
-		ofVec2f P1r[2],P2r[2],P3r[2],P4r[2];
-		for ( int j=0; j<2; j++)
-		{
-			{	const _st_ofxFatLine* SL;
-				ofVec2f P_0, P_1;
-				
-				if ( j==0)
-				{
-					SL = SA.SL;
-					P_0 = SA.P[0];
-					P_1 = SA.P[1];
-				}
-				else
-				{
-					SL = SB.SL;
-					P_0 = SB.P[0];
-					P_1 = SB.P[1];
-				}
-				
-				P1[j] = P_0+SL[0].T;
-				P2[j] = P_0-SL[0].T;
-					if ( SL[1].djoint == OFX_FATLINE_JOINT_MITER)
-				P3[j] = P_1+SL[1].vP;
-					else
-				P3[j] = P_1+SL[1].T1;
-				P4[j] = P_1+SL[1].T; //P4 = SL[1].PT;
-				
-					P1r[j] = P1[j] +SL[0].R;
-					P2r[j] = P2[j] -SL[0].R;
-						if ( SL[1].djoint == OFX_FATLINE_JOINT_MITER)
-					P3r[j] = P3[j] +SL[1].vR;
-						else
-					P3r[j] = P3[j] +SL[1].R1+SL[0].bR;
-					P4r[j] = P4[j] +SL[1].R-SL[1].bR;
-			}
-			/* //see cap06.png
-			ofFloatColor cc;
-			annotate(P1[j],cc,1);
-			annotate(P2[j],cc,2);
-			annotate(P3[j],cc,3);
-			annotate(P4[j],cc,4);
-			*/
-		}
-		
-		ofVec2f p24i13; // P2[0]P4[0] intersect with P1[1]P3[1]
-		ofVec2f p12i13, p24i34, p13i34;
-		
-		{	ofVec2f P4_0,P4r_0;
-			if ( SA.SL[1].degenT)
-			{
-				P4_0 = SA.SL[1].PT;
-				P4r_0= SA.SL[1].PR;
-			}
-			else
-			{
-				P4_0 = ofVec2f(SA.P[1]) - SA.SL[1].vP;
-				P4r_0= P4_0 - SA.SL[1].vR;
-			}
-			
-			//case 1
-			double t24i13;
-			int r24i13 = intersect( P2[0],P4_0,  P1[1],P3[1], p24i13, &t24i13);
-			if (r24i13 == 1)
-			{
-				/*Point p24i13_r; //intersection point of fade
-				int   r24i13_r = intersect( P2r[0],P4r_0,  P1r[1],P3r[1], p24i13_r);
-				*/
-				SB.SL[0].ajoin = 1;
-				SB.SL[0].a1 = p24i13;
-				SB.SL[0].las_PT = SA.SL[1].PT;
-				SB.SL[0].cc1 = SA.C[1];
-				SB.SL[0].cc2 = colorBetween(SA.C[1],SA.C[0], 1.0-t24i13);
-			}
-			
-			//case 3
-			double t24i34;
-			int r24i34 = intersect( P2[0],P4[0], P3[1],P4[1], p24i34, &t24i34);
-			if (r24i34 == 1)
-			{
-				SB.SL[0].ajoin = 3;
-				SB.SL[0].a1 = p24i34;
-				SB.SL[0].las_PT = SA.SL[1].PT;
-				SB.SL[0].cc1 = SA.C[1];
-				SB.SL[0].cc2 = colorBetween(SA.C[1],SA.C[0], 1.0-t24i34);
-			}
-		}
-		
-		{	//case 2
-			int r12i13 = intersect( P1[0],P2[0], P1[1],P3[1], p12i13);
-			if (r12i13 == 1)
-			{
-				SB.SL[0].ajoin = 2;
-				SB.SL[0].a1 = p12i13;
-				SB.SL[0].a2 = P2[0];
-				SB.SL[0].las_PT = SA.SL[1].PT;
-				SB.SL[0].cc1 = SA.C[0];
-				SB.SL[0].cc2 = SA.C[1];
-			}
-		}
-	}
-} //anchor_weld
-#endif
-//--------------------------------------------------------------
-//--------------------------------------------------------------
-#ifdef VASE_RENDERER_EXPER
-template <typename T>
-class circular_array{
-	const int size;
-	int cur; //current
-	T* array;
-public:
-	circular_array(int size_) : size(size_){
-		array = new T[size];
-		cur = 0;
-	}
-	~circular_array(){
-		delete[] array;
-	}
-	
-	void push( T obj){
-		array[cur] = obj;
-		move(1);
-	}
-	
-	int get_size() const
-		{ return size;}
-	
-	int get_i( int i) const {//get valid index relative to current
-		int des = cur + i%size;
-		if ( des > size-1)
-		{
-			des -= size;
-		}
-		if ( des < 0)
-		{
-			des = size+i;
-		}
-		return des;
-	}
-	
-	void move( int i){ //move current relatively
-		cur = get_i(i);
-	}
-	
-	T& operator[] (int i){ //get element at relative position
-		return array[get_i(i)];
-	}
-};
-#endif //VASE_RENDERER_EXPER
-//--------------------------------------------------------------
-//--------------------------------------------------------------
-void ofxFatLine(
-	const ofVec2f* P,       //pointer to array of point of a ofxFatLine
-	const ofFloatColor* C,      //array of color
-	const double* weight,//array of weight
-	int size_of_P, //size of the buffer P
-	const ofxFatLineOptions* options, //extra options
-	bool triangulation)  //if true, draw triangulation
-{
-	ofVec2f  PP[3];
-	ofFloatColor CC[3];
-	double WW[3];
-	
-	ofVec2f mid_l, mid_n; //the last and the next mid point
-	ofFloatColor c_l, c_n;
-	double w_l, w_n;
-	{	//init for the first anchor
-		mid_l = P[0];
-		c_l = C[0];
-		w_l = weight[0];
-	}
-	
-	int k=0; //number of anchors
-	
-	if ( size_of_P == 2)
-	{
-		ofxFatSegment_( P,C,weight,options, true,true);
-		return;
-	}
-	
-	#ifndef VASE_RENDERER_EXPER //stable implementation
-	for ( int i=1; i<size_of_P-1; i++)
-	{
-		_st_anchor SA;
-		if ( i == size_of_P-2) {
-			mid_n = P[i+1];
-			c_n   = C[i+1];
-			w_n   = weight[i+1];
-		}
-		else {
-			mid_n = midpoint(P[i],P[i+1]);
-			c_n   = colorBetween  (C[i],C[i+1]);
-			w_n   = (weight[i]+weight[i+1]) *0.5;
-		}
-		
-		SA.P[0]=mid_l; SA.C[0]=c_l;  SA.W[0]=w_l;
-		SA.P[1]=P[i];        SA.C[1]=C[i]; SA.W[1]=weight[i];
-		SA.P[2]=mid_n; SA.C[2]=c_n;  SA.W[2]=w_n;
-		
-		k++;
-		SA.result = anchor( SA,options, i==1,i==size_of_P-2);
-		if ( SA.result)
-		anchor_late( SA.P,SA.C, SA.SL,SA.vah, SA.cap_start,SA.cap_end);
-		SA.vah.draw();
-			#ifdef VASE_RENDERER_DEBUG
-			if ( triangulation)
-				draw_triangles_outline(SA.vah);
-			#endif
-		SA.vah.clear();
-		
-		mid_l = mid_n;
-		c_l = c_n;
-		w_l = w_n;
-	}
-	#else //VASE_RENDERER_EXPER defined //unfinished anchor welding feature
-	circular_array<_st_anchor> SA(2);
-	for ( int i=1; i<size_of_P-1; i++)
-	{
-		if ( i == size_of_P-2) {
-			mid_n = P[i+1];
-			c_n   = C[i+1];
-			w_n   = weight[i+1];
-		}
-		else {
-			mid_n = ofVec2f::midpoint(P[i],P[i+1]);
-			c_n   = colorBetween  (C[i],C[i+1]);
-			w_n   = (weight[i]+weight[i+1]) *0.5;
-		}
-		
-		SA[0].P[0]=mid_l.vec(); SA[0].C[0]=c_l;  SA[0].W[0]=w_l;
-		SA[0].P[1]=P[i];        SA[0].C[1]=C[i]; SA[0].W[1]=weight[i];
-		SA[0].P[2]=mid_n.vec(); SA[0].C[2]=c_n;  SA[0].W[2]=w_n;
-		
-		k++;
-		SA[0].result = anchor( SA[0],options, i==1,i==size_of_P-2);
-		if ( i>1 && SA[0].result)
-			anchor_weld( SA[-1],SA[0]);
-		
-		mid_l = mid_n;
-		c_l = c_n;
-		w_l = w_n;
-		
-		if ( i>1 && SA[-1].result)
-		{
-			anchor_late( SA[-1].P,SA[-1].C, SA[-1].SL,SA[-1].vah, SA[-1].cap_start,SA[-1].cap_end );
-			SA[-1].vah.draw();
-			SA[-1].vah.clear();
-		}
-		SA.move(1);
-	}
-	if ( SA[-1].result) //draw the last anchor
-	{
-		anchor_late( SA[-1].P,SA[-1].C, SA[-1].SL,SA[-1].vah, SA[-1].cap_start,SA[-1].cap_end );
-		SA[-1].vah.draw();
-		SA[-1].vah.clear();
-	}
-	#endif //VASE_RENDERER_EXPER
-}
-
-void ofxFatLine( const ofVec2f* P, const ofFloatColor* C, const double* weight, int size_of_P, const ofxFatLineOptions* options){
-	ofxFatLine(P,C,weight,size_of_P,options,false);
-}
-
-#undef DEBUG
-#endif
