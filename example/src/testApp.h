@@ -1,12 +1,48 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxGui.h"
-
 #include "ofxFatLine.h"
+#define DRAG_SIZE 10
+class draggableVertex: public ofVec3f{
+public:
+    draggableVertex(float x=0, float y=0){
+        r.setFromCenter(x,y,DRAG_SIZE,DRAG_SIZE);
+        this->x=x;
+        this->y=y;
+        this->z=0;
+        bOver = false;
+        
+    }    
+    void over(float x, float y){
+        bOver = (r.inside(x, y));
+    }
+    
+    void drag(float x, float y){
+        if (bOver) {
+            r.setFromCenter(this->x, this->y, DRAG_SIZE,DRAG_SIZE);
+            this->x=x;
+            this->y=y;
+        }
+    }
+    void draw(float x=0, float y =0){
+        ofPushStyle();
+        ofPushMatrix();
+        ofTranslate(x, y);
+        ofSetLineWidth(1);
+        ofNoFill();
+        ofSetColor(0);
+        ofRect(this->r);
+        ofPopMatrix();
+        ofPopStyle();
+        
+    }
+    
+    bool bOver;
+    ofRectangle r;
+}; 
 
 
-#define BUF_SIZE 20
+
 class testApp : public ofBaseApp{
 public:
     void setup();
@@ -23,39 +59,11 @@ public:
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
     
-    void sliderChange(float & f);
-    void pointsChanged(int & n);
-    void buttonPressed(bool & b);
-
-    void enableCustomGLstates();
-    void disableCustomGLstates();
-    void testDraw();
-    
-    void lineUpdate();
-    
-    void lineInit( int N);
-    
-    ofxFatLineJointType getJointType();
-    ofxFatLineCapType getCapType();
-    
-    
-    
-	short cur_drag; //index of point which is being draged currently
-	int tsize;
-
-    
-    ofxPanel gui;
-    ofxFloatSlider weight, feathering, start_weight;
-    ofxToggle feather, no_feather_at_cap, no_feather_at_core, 
-    jt_miter, jt_bevel, jt_round,
-    jc_butt, jc_round, jc_square, jc_rect,
-    colored, alphaed, weighted,
-    skeleton, triangulate;
-    ofxIntSlider np;
-    
-    ofVec2f AP[BUF_SIZE]; 
-    int size_of_AP;
-    ofFloatColor AC[BUF_SIZE];
-    double Aw[BUF_SIZE];
-    
+ 
+    ofxFatLine fatLine;
+    vector<draggableVertex> vertices;
+    vector<ofVec3f> points;
+    vector<ofFloatColor> colors;
+    vector<double> weights;
+    bool bDrawDebug;
 };
