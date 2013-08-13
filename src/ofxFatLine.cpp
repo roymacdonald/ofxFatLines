@@ -30,7 +30,7 @@ ofxFatLine::ofxFatLine(){
 	joint = OFX_FATLINE_JOINT_BEVEL;
 	cap = OFX_FATLINE_CAP_BUTT;
 	bFeather = true;
-    feathering = 1;
+    feathering = 200;
 	bFeatherAtCap =true;
 	bFeatherAtCore = true;
 }
@@ -130,10 +130,11 @@ void ofxFatLine::pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, floa
     
     ofVec3f pp = dir * l1;
     ofVec3f pa = pp + dir *l2;
+    ofFloatColor c(color.r, color.g, color.g, 0);
     if (!bInv) {
         pushNewAnchor(pp + v, color);        
     }
-    pushNewAnchor(pa + v, ofFloatColor(color.r, color.g, color.g, 0));
+    pushNewAnchor(pa + v, c);
     if (bInv) {
         pushNewAnchor(pp + v, color);
     }
@@ -149,47 +150,71 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int
     if (cos == 0){
         cos = FLT_EPSILON;
     }
+    r1.normalize();
+    r2.normalize();
+    bool bAligned = false;
+    if (abs(cos) == 1) {
+        bAligned = true;
+        p = r1;
+    }
     cos = 1/cos;
+    
     midVectors.push_back(p);
     if (bFlipped) {
         p *=-1;
     }
     flippepMidVectors.push_back(p);
-    
-    r1.normalize();
-    r2.normalize();
-    if (midVectors.back().dot(r1)>0) {
-        r1 *=-1;
-    }
-    if (midVectors.back().dot(r2)>0) {
-        r2 *=-1;
-    }    
-    pushNewAnchors(v, r1, colors[index], weights[index], feathering, bFlipped);
-    if (bFlipped) {
-        pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, !bFlipped);
+    if (bAligned) {
+        pushNewAnchors(v, p*-1, colors[index], weights[index], feathering, true);
         pushNewAnchor(v, colors[index]);
-        pushNewAnchors(v, r2, colors[index], weights[index], feathering, bFlipped);
-        
+        pushNewAnchors(v, p, colors[index], weights[index], feathering, false);
+        if (index != 0) {
+            if (meshVertices.size() >5) {
+                for (int i = meshVertices.size()-4; i<meshVertices.size(); i++) {
+                    pushQuadIndices(i);
+                }
+            }
+        }
         
     }else{
-        pushNewAnchors(v, r2, colors[index], weights[index], feathering, bFlipped);
-        pushNewAnchor(v, colors[index]);
-        pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, !bFlipped);        
-    }
-    int l = meshVertices.size();
-    if (l >11) {
-        if (bFlipped) {
-            pushQuadIndices(l - 12, l -11, l - 5, l - 4);
-            pushQuadIndices(l - 11, l -10, l - 4, l - 3);
-            pushQuadIndices(l - 10, l - 9, l - 3, l - 7);
-            pushQuadIndices(l -  9, l - 8, l - 7, l - 6);
-        }else{
-            pushQuadIndices(l - 12, l -11, l - 7, l - 6);
-            pushQuadIndices(l - 11, l -10, l - 6, l - 3);
-            pushQuadIndices(l - 10, l - 9, l - 3, l - 2);
-            pushQuadIndices(l -  9, l - 8, l - 2, l - 1);
+        
+        if (midVectors.back().dot(r1)>0) {
+            r1 *=-1;
         }
+        if (midVectors.back().dot(r2)>0) {
+            r2 *=-1;
+        }    
+        
+        if (bFlipped) {
+            pushNewAnchors(v, r1, colors[index], weights[index], feathering, !bFlipped);
+            pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, bFlipped);
+            pushNewAnchor(v, colors[index]);
+            pushNewAnchors(v, r2, colors[index], weights[index], feathering, !bFlipped);
+            
+            
+        }else{
+            pushNewAnchors(v, r1, colors[index], weights[index], feathering, !bFlipped);
+            pushNewAnchors(v, r2, colors[index], weights[index], feathering, !bFlipped);
+            pushNewAnchor(v, colors[index]);
+            pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, bFlipped);        
+        }
+        int l = meshVertices.size();
+        if (l >11) {
+            if (bFlipped) {
+                pushQuadIndices(l - 12, l -11, l - 5, l - 4);
+                pushQuadIndices(l - 11, l -10, l - 4, l - 3);
+                pushQuadIndices(l - 10, l - 9, l - 3, l - 7);
+                pushQuadIndices(l -  9, l - 8, l - 7, l - 6);
+            }else{
+                pushQuadIndices(l - 12, l -11, l - 7, l - 6);
+                pushQuadIndices(l - 11, l -10, l - 6, l - 3);
+                pushQuadIndices(l - 10, l - 9, l - 3, l - 2);
+                pushQuadIndices(l -  9, l - 8, l - 2, l - 1);
+            }
+        }
+        updateJoint(index,bFlipped);
     }
+
     /*
      ofVec3f pp = p * 50 * cos;
      ofVec3f pa = pp + p * 2 * cos;
@@ -219,32 +244,20 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int
 }
 //--------------------------------------------------------------
 void ofxFatLine::pushQuadIndices(int i1, int i2, int i3, int i4){
-    meshIndices.push_back((ofIndexType)i1);
-    meshIndices.push_back((ofIndexType)i3);
-    meshIndices.push_back((ofIndexType)i4);
-    meshIndices.push_back((ofIndexType)i1);
-    meshIndices.push_back((ofIndexType)i2);
-    meshIndices.push_back((ofIndexType)i4);
-    
+    pushTriangleIndices(i1, i3, i4);
+    pushTriangleIndices(i1, i2, i4);
 }
 //--------------------------------------------------------------
 void ofxFatLine::pushQuadIndices(int index){
-    /*
-     meshIndices.push_back((ofIndexType)index -6);
-     meshIndices.push_back((ofIndexType)index -5);
-     meshIndices.push_back((ofIndexType)index -1);
-     meshIndices.push_back((ofIndexType)index -5);
-     meshIndices.push_back((ofIndexType)index -1);
-     meshIndices.push_back((ofIndexType)index);
-     //*/
-    meshIndices.push_back((ofIndexType)index -8);
-    meshIndices.push_back((ofIndexType)index -7);
-    meshIndices.push_back((ofIndexType)index -1);
-    meshIndices.push_back((ofIndexType)index -7);
-    meshIndices.push_back((ofIndexType)index -1);
-    meshIndices.push_back((ofIndexType)index);
+    pushTriangleIndices(index -6, index -5, index);
+    pushTriangleIndices(index -6, index -1, index);
 }
-
+//--------------------------------------------------------------
+void ofxFatLine::pushTriangleIndices(int i1, int i2, int i3){
+    meshIndices.push_back((ofIndexType)i1);
+    meshIndices.push_back((ofIndexType)i2);
+    meshIndices.push_back((ofIndexType)i3);
+}
 //--------------------------------------------------------------
 void ofxFatLine::updateMeshIndices(){
     for (int i = 0; i < meshVertices.size()-5; i+=5) {
@@ -259,17 +272,62 @@ void ofxFatLine::updateMeshIndices(){
     }
 }
 //--------------------------------------------------------------
-void ofxFatLine::updateJoint(){
+void ofxFatLine::updateJoint(int index, bool bFlip){
+    int l = meshVertices.size()-1;
+    if (joint == OFX_FATLINE_JOINT_MITER) {
+        
+        
+    }else if (joint == OFX_FATLINE_JOINT_BEVEL){
+        if (bFlip) {
+            pushTriangleIndices(l -1, l-2, l-6);
+            pushQuadIndices(l -6, l-5, l-1, l);
+        }else{
+            pushTriangleIndices(l -3, l-2, l-5);
+            pushQuadIndices(l -6, l-5, l-4, l-3);        
+        }
+    }else if (joint == OFX_FATLINE_JOINT_ROUND){
+        
+        
+    }
     
 }
 //--------------------------------------------------------------
 void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
     ofVec3f p = (p1 - p2).cross(ofVec3f(0,0,1)).normalize(); 
     bool flip = false;
-    if (index>0) {
-        flip = !same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+    ofVec3f dir = (p2-p1).normalized(); 
+    if (cap == OFX_FATLINE_CAP_SQUARE) {
+        p2 =  dir * weights[index]*0.5f;
     }
-    pushNewVertex(p2, p, p, p, index, 1, flip);
+    
+    if (getVertices().size()>1) {
+        if (index==0 || index == getVertices().size()-1) {
+            midVectors.push_back(p);
+            if (index != 0) {
+                flip = same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+                if (flip) {
+                    p*=-1;
+                }
+            }
+            flippepMidVectors.push_back(p*-1);
+            
+            pushNewAnchors(p2, p, colors[0], weights[0], feathering, true);
+            pushNewAnchor(p2, colors[0]);
+            p *=-1;
+            pushNewAnchors(p2, p, colors[0], weights[0], feathering, false);
+            if (index != 0) {
+                if (meshVertices.size() >5) {
+                    for (int i = meshVertices.size()-4; i<meshVertices.size(); i++) {
+                        pushQuadIndices(i);
+                    }
+                }
+            }
+        }    
+    }/*
+      else{
+      flip = !same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+      pushNewVertex(p2, p, p, p, index, 1, flip);    
+      }//*/
 }
 //--------------------------------------------------------------
 void ofxFatLine::update(){
@@ -295,6 +353,12 @@ void ofxFatLine::drawDebug(){
     ofSetLineWidth(1);
     ofSetColor(0);
     m.drawWireframe();
+    
+    ofSetColor(0);
+    for (int i =0; i < meshVertices.size(); i++) {
+        ofDrawBitmapStringHighlight(ofToString(i), meshVertices[i]);
+    }
+    
     ofPopStyle();
     
 }

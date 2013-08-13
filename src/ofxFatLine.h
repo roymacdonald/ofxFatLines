@@ -1,5 +1,6 @@
 #pragma once
 #include "ofMain.h"
+#include "sincosineLut.h"
 
 //#include "vector_operations.h"
 //#include "vertex_array_holder.h"
@@ -52,6 +53,7 @@ public:
     ofMesh &getMesh(){return mesh;}
     void drawDebug();
     void printDebug();
+
 protected:
     void addColor(const ofFloatColor &c);
     void addColors(const vector<ofFloatColor> &c);
@@ -63,13 +65,14 @@ protected:
     void pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int index, float cos, bool bFlipped = false);    
     void pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, float l1, float l2, bool bInv);
     void pushNewAnchor(ofVec3f a, ofFloatColor c);
+    void pushTriangleIndices(int i1, int i2, int i3);
     void updateCap(ofVec3f p1, ofVec3f p2, int index);
     void updateMesh();
     void updateMeshIndices();
-    void updateJoint();
+    void updateJoint(int index, bool bFlip);
     void updateVertex(int index);
-    
-    ofMesh mesh;
+
+    ofMesh mesh, capJointMesh;
     
     vector<ofFloatColor> colors;
     vector<double> weights;
@@ -79,7 +82,9 @@ protected:
     vector<ofVec3f> meshVertices;
     vector<ofIndexType>meshIndices;
     vector<ofFloatColor> meshColors;
-    
+    vector<ofVec3f>jointMeshVertices;
+    vector<ofIndexType>jointMeshIndices;
+    vector<ofFloatColor>jointMeshColors;
 
     bool bTriangulation;
 	ofxFatLineJointType joint;
@@ -88,6 +93,7 @@ protected:
     double feathering;
 	bool bFeatherAtCap;
 	bool bFeatherAtCore;
+    
     
 
 };

@@ -65,4 +65,5 @@ public:
     vector<ofVec3f> points;
     vector<ofFloatColor> colors;
     vector<double> weights;
+    bool bDrawDebug;
 };
