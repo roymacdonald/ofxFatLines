@@ -2,15 +2,20 @@
 
 //--------------------------------------------------------------
 void testApp::setup(){
-    for (int i = 0; i<6; i++) {
-        points.push_back(ofVec3f(ofRandom(ofGetWidth()), ofRandom(ofGetHeight())));
+    int totalVertices = 5;
+    float yInc = (ofGetHeight()-100)/totalVertices;
+    for (int i = 0; i<= totalVertices; i++) {
+        points.push_back(ofVec3f(ofGetWidth()*0.5f, ofGetHeight() - (yInc * i + 50)));
         vertices.push_back(draggableVertex(points.back().x, points.back().y));
         ofFloatColor c; c.setHsb(ofRandom(1), 1, 1 );
         colors.push_back(c);
-        weights.push_back(20);
+        weights.push_back(100);
     }
+    fatLine.setFeather(2);
     fatLine.add(points, colors, weights);
     fatLine.printDebug();
+    bDrawDebug = true;
+    
 }
 
 
@@ -26,11 +31,23 @@ void testApp::draw(){
     for (int i = 0; i < vertices.size(); i++) {
         vertices[i].draw();
     }
-   fatLine.drawDebug();
+    if (bDrawDebug) {
+        fatLine.drawDebug();       
+    }
+
 }
 
 //--------------------------------------------------------------
-void testApp::keyPressed(int key){}
+void testApp::keyPressed(int key){
+    switch (key) {
+        case ' ':
+            bDrawDebug ^= true;
+            break;
+            
+        default:
+            break;
+    }
+}
 //--------------------------------------------------------------
 void testApp::keyReleased(int key){}
 //--------------------------------------------------------------
