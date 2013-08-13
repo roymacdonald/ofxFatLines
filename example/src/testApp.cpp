@@ -14,7 +14,7 @@ void testApp::setup(){
     fatLine.setFeather(2);
     fatLine.add(points, colors, weights);
     fatLine.printDebug();
-    bDrawDebug = true;
+    bDrawDebug = false;
     
 }
 
