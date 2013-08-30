@@ -5,6 +5,27 @@
 //#include "vector_operations.h"
 //#include "vertex_array_holder.h"
 
+//--------------------------------------------------------------
+inline double sideOfLine(const ofVec2f& v, const ofVec2f& a, const ofVec2f& b){
+    ofVec2f dir = (b-a).normalized().perpendiculared();
+    return v.normalized().dot(dir);
+}
+//--------------------------------------------------------------
+static inline bool sameSideOfLine( const ofVec2f& V, const ofVec2f& ref, const ofVec2f& a, const ofVec2f& b){
+	double sign1 = sideOfLine(V*100, a, b);
+    double sign2 = sideOfLine(ref*100, a, b);
+    return !( (sign1>=0) ^ (sign2>=0));
+    
+}
+//--------------------------------------------------------------
+static inline ofVec3f getMidVector(ofVec3f &a, ofVec3f &b){
+    return(a.normalized() + b.normalized()).normalized();
+    /*
+     ofVec3f perp = (a - pivot).cross(b - pivot);
+     float  angle = (a - pivot).angle(b - pivot);
+     return a.getRotated(angle/2,pivot, perp);//*/
+}
+
 enum ofxFatLineJointType{
     OFX_FATLINE_JOINT_MITER,
     OFX_FATLINE_JOINT_BEVEL,
@@ -62,7 +83,7 @@ protected:
 
     void pushQuadIndices(int index);
     void pushQuadIndices(int i1, int i2, int i3, int i4);
-    void pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int index, float cos, bool bFlipped = false);    
+    void pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, float maxLength, int index, float cos, bool bFlipped = false);    
     void pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, float l1, float l2, bool bInv);
     void pushNewAnchor(ofVec3f a, ofFloatColor c);
     void pushTriangleIndices(int i1, int i2, int i3);

@@ -2,29 +2,6 @@
 #include "ofxFatLine.h"
 
 //--------------------------------------------------------------
-inline double sideOfLine(const ofVec2f& v, const ofVec2f& a, const ofVec2f& b){
-    ofVec2f dir = (b-a).normalized().perpendiculared();
-    return v.normalized().dot(dir);
-}
-//--------------------------------------------------------------
-static inline bool same_side_of_line( const ofVec2f& V, const ofVec2f& ref, const ofVec2f& a, const ofVec2f& b){
-	double sign1 = sideOfLine(V*100, a, b);
-    double sign2 = sideOfLine(ref*100, a, b);
-    return !( (sign1>=0) ^ (sign2>=0));
-    
-}
-//--------------------------------------------------------------
-static inline ofVec3f getMidVector(ofVec3f &a, ofVec3f &b){
-    return(a.normalized() + b.normalized()).normalized();
-    /*
-     ofVec3f perp = (a - pivot).cross(b - pivot);
-     float  angle = (a - pivot).angle(b - pivot);
-     return a.getRotated(angle/2,pivot, perp);//*/
-}
-
-
-
-//--------------------------------------------------------------
 ofxFatLine::ofxFatLine(){
     bTriangulation = false;
 	joint = OFX_FATLINE_JOINT_BEVEL;
@@ -85,7 +62,7 @@ void ofxFatLine::updateMesh(){
          float  angle = a.angle(b);
          
          ofVec3f p = getMidVector(a, b);
-         bool flip = !same_side_of_line(p, flippepMidVectors.back(), getVertices()[i-1], getVertices()[i]);
+         bool flip = !sameSideOfLine(p, flippepMidVectors.back(), getVertices()[i-1], getVertices()[i]);
          
          float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
          pushNewVertex(getVertices()[i], p, i, cs, flip);
@@ -114,10 +91,16 @@ void ofxFatLine::updateVertex(int index){
         float  angle = a.angle(b);
         
         ofVec3f p = getMidVector(a, b);
-        bool flip = !same_side_of_line(p, flippepMidVectors.back(), getVertices()[index-1], getVertices()[index]);
+        ///Limits midvector length to avoid strange behaviour when angles are small.
+        float hyp = MIN(a.length(), b.length());
+        hyp *= hyp;
+        hyp += weights[index] * weights[index];
+        hyp = sqrt(hyp);
+        //------
+        bool flip = !sameSideOfLine(p, flippepMidVectors.back(), getVertices()[index-1], getVertices()[index]);
         
         float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
-        pushNewVertex(getVertices()[index], p, a.cross(ofVec3f(0,0,1).normalized()), b.cross(ofVec3f(0,0,1).normalized()), index, cs, flip);
+        pushNewVertex(getVertices()[index], p, a.cross(ofVec3f(0,0,1).normalized()), b.cross(ofVec3f(0,0,1).normalized()),hyp, index, cs, flip);
     }
 }
 //--------------------------------------------------------------
@@ -143,7 +126,7 @@ void ofxFatLine::pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, floa
     
 }
 //--------------------------------------------------------------
-void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int index, float cos, bool bFlipped){
+void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, float maxLength, int index, float cos, bool bFlipped){
     
     ofFloatColor c(colors[index]);
     c.a =0;
@@ -184,10 +167,13 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int
         if (midVectors.back().dot(r2)>0) {
             r2 *=-1;
         }    
-        
+        float midLength = weights[index]*cos;
+        if (midLength > maxLength) {
+            midLength = maxLength;
+        }
         if (bFlipped) {
             pushNewAnchors(v, r1, colors[index], weights[index], feathering, !bFlipped);
-            pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, bFlipped);
+            pushNewAnchors(v, midVectors.back(), colors[index], midLength, feathering*cos, bFlipped);
             pushNewAnchor(v, colors[index]);
             pushNewAnchors(v, r2, colors[index], weights[index], feathering, !bFlipped);
             
@@ -196,7 +182,7 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, int
             pushNewAnchors(v, r1, colors[index], weights[index], feathering, !bFlipped);
             pushNewAnchors(v, r2, colors[index], weights[index], feathering, !bFlipped);
             pushNewAnchor(v, colors[index]);
-            pushNewAnchors(v, midVectors.back(), colors[index], weights[index]*cos, feathering*cos, bFlipped);        
+            pushNewAnchors(v, midVectors.back(), colors[index], midLength, feathering*cos, bFlipped);        
         }
         int l = meshVertices.size();
         if (l >11) {
@@ -304,7 +290,7 @@ void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
         if (index==0 || index == getVertices().size()-1) {
             midVectors.push_back(p);
             if (index != 0) {
-                flip = same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+                flip = sameSideOfLine(p, flippepMidVectors.back(), p1, p2);
                 if (flip) {
                     p*=-1;
                 }
@@ -325,7 +311,7 @@ void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
         }    
     }/*
       else{
-      flip = !same_side_of_line(p, flippepMidVectors.back(), p1, p2);
+      flip = !sameSideOfLine(p, flippepMidVectors.back(), p1, p2);
       pushNewVertex(p2, p, p, p, index, 1, flip);    
       }//*/
 }
