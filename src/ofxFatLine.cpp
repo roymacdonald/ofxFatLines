@@ -7,16 +7,34 @@ ofxFatLine::ofxFatLine(){
 	joint = OFX_FATLINE_JOINT_BEVEL;
 	cap = OFX_FATLINE_CAP_BUTT;
 	bFeather = true;
-    feathering = 200;
+    feathering = 2;
 	bFeatherAtCap =true;
 	bFeatherAtCore = true;
+	bUseGlobalColor = false;
+	bUseGlobalWidth = 1;
+	cout << "ofxFatLine" << endl;
+}
+//--------------------------------------------------------------
+void ofxFatLine::setFromPolyline(ofPolyline & poly){
+//	ofxFatLine();
+	setGlobalColor(ofGetStyle().color);
+	setGlobalWidth(ofGetStyle().lineWidth);
+	if (!poly.getVertices().empty()){
+		addVertices(poly.getVertices());
+	for (int i = 0; i <getVertices().size(); i++) {
+		addColor(globalColor);
+		addWeight(globalWidth);
+	}
+	update();
+	//*/
+	}		
 }
 //--------------------------------------------------------------
 ofxFatLine::ofxFatLine(const vector<ofVec3f> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation){
     ofxFatLine();
     add(P, C, W);
     enableTriangulation(triangulation); 
-    update();
+   // update();
 }
 //--------------------------------------------------------------
 void ofxFatLine::add(const ofVec3f &thePoint, const ofFloatColor &theColor, const double &theWeight){
@@ -41,6 +59,20 @@ void ofxFatLine::printDebug(){
     cout << "Num mesh vertices: " << mesh.getVertices().size() << endl;
     cout << "Num mesh colors: " << mesh.getColors().size() << endl;
     cout << "------------------------------------------------" << endl;
+}
+//--------------------------------------------------------------
+void ofxFatLine::setGlobalColor(ofColor col){
+	setGlobalColor(ofFloatColor(col.r, col.g, col.b, col.a));
+}
+//--------------------------------------------------------------
+void ofxFatLine::setGlobalColor(ofFloatColor col){
+	globalColor = col;
+	bUseGlobalColor = true;
+}
+//--------------------------------------------------------------
+void ofxFatLine::setGlobalWidth(float w){
+	bUseGlobalWidth = true;
+	globalWidth = w;
 }
 //--------------------------------------------------------------
 void ofxFatLine::updatePoint(int index, ofVec3f p){
@@ -148,7 +180,8 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, flo
     }
     flippepMidVectors.push_back(p);
     if (bAligned) {
-        pushNewAnchors(v, p*-1, colors[index], weights[index], feathering, true);
+		cout << "vertexAligned" << endl;
+		pushNewAnchors(v, p*-1, colors[index], weights[index], feathering, true);
         pushNewAnchor(v, colors[index]);
         pushNewAnchors(v, p, colors[index], weights[index], feathering, false);
         if (index != 0) {
@@ -261,9 +294,10 @@ void ofxFatLine::updateMeshIndices(){
 void ofxFatLine::updateJoint(int index, bool bFlip){
     int l = meshVertices.size()-1;
     if (joint == OFX_FATLINE_JOINT_MITER) {
-        
+        cout << "update joint miter" << endl;
         
     }else if (joint == OFX_FATLINE_JOINT_BEVEL){
+        cout << "update joint bevel" << endl;
         if (bFlip) {
             pushTriangleIndices(l -1, l-2, l-6);
             pushQuadIndices(l -6, l-5, l-1, l);
@@ -272,7 +306,7 @@ void ofxFatLine::updateJoint(int index, bool bFlip){
             pushQuadIndices(l -6, l-5, l-4, l-3);        
         }
     }else if (joint == OFX_FATLINE_JOINT_ROUND){
-        
+        cout << "update joint round" << endl;        
         
     }
     

@@ -4,7 +4,49 @@
 
 //#include "vector_operations.h"
 //#include "vertex_array_holder.h"
+//--------------------------------------------------------------
+inline bool lineSegmentsIntersect(const ofVec2f & l1a, const ofVec2f & l1b, const ofVec2f & l2a, const ofVec2f & l2b){
+	if(l1a == l2a || l1a == l2b || l1b == l2a || l1b == l2b){
+		return true;
+	}
 
+	float m1, m2;//slopes
+	bool infM1 = false, infM2 = false;
+	bool equalSlope = false;
+	if (l1a.x == l1b.x) {
+		infM1 =true;
+	}
+	if (l2a.x == l2b.x) { //the slope is equal to infinite, or a division by 0 is created. 
+		infM2 =true;
+	}
+	if (infM1 && infM2) {
+		equalSlope = true;
+	}else{
+		if(!infM1){//check so we dont divide by 0
+			m1 = (l1b.y - l1a.y)/(l1b.x - l1a.x);//slope line 1
+		}
+		if (!infM2) {
+			m2 = (l2b.y - l2a.y)/(l2b.x - l2a.x);//slope line 2		
+		}
+		
+		if (!infM1 && !infM2) {
+			if (m1 == m2) {
+				equalSlope = true;
+			}
+		}
+	}
+	if(equalSlope){
+		if(!infM1){
+			if((MAX(l1a.x, l1b.x) > MIN(l2a.x,l2b.x)) ||  (MAX(l2a.x, l2b.x) > MIN(l1a.x,l1b.x))){
+				
+			}
+		}else{
+		}
+	}else{
+	
+	}
+	
+}
 //--------------------------------------------------------------
 inline double sideOfLine(const ofVec2f& v, const ofVec2f& a, const ofVec2f& b){
     ofVec2f dir = (b-a).normalized().perpendiculared();
@@ -45,12 +87,13 @@ public:
 
     void add(const ofVec3f &thePoint, const ofFloatColor &theColor, const double &theWeight);
     void add(const vector<ofVec3f> &thePoints, const vector<ofFloatColor> &theColors, const vector<double> &theWeights);
-
+	
+	void setFromPolyline(ofPolyline & poly);
     
     void enableFeathering(bool e = true){bFeather = e;}
     void toggleFeathering(){enableFeathering(!bFeather);}
     
-    void setFeather(double f){feathering = f;}
+    void setFeather(double f){feathering = f; update();}
     double getFeather(){return feathering;}
     
     void setJointType(ofxFatLineJointType j){joint = j;}
@@ -68,6 +111,11 @@ public:
     void enableFeatherAtCap(bool e = true){bFeatherAtCap =e; }
     void toggleFeatherAtCap(){enableFeatherAtCap(!bFeatherAtCap);}    
     
+	void setGlobalColor(ofColor col);
+	void setGlobalColor(ofFloatColor col);
+	
+	void setGlobalWidth(float w);
+	
     void draw();
     void update();
     void updatePoint(int index, ofVec3f p);
@@ -106,7 +154,11 @@ protected:
     vector<ofVec3f>jointMeshVertices;
     vector<ofIndexType>jointMeshIndices;
     vector<ofFloatColor>jointMeshColors;
-
+	
+	ofFloatColor globalColor;
+	float globalWidth;
+	bool bUseGlobalColor;
+	bool bUseGlobalWidth;
     bool bTriangulation;
 	ofxFatLineJointType joint;
 	ofxFatLineCapType cap;
