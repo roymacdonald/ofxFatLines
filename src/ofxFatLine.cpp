@@ -49,6 +49,32 @@ void ofxFatLine::updatePoint(int index, ofVec3f p){
     }
 }
 //--------------------------------------------------------------
+void ofxFatLine::updateWeight(int index, float w){
+    if (index < getVertices().size()) {
+        weights.at(index) = w;
+    }
+}
+//--------------------------------------------------------------
+float ofxFatLine::getWeight(int index){
+    if (index < getVertices().size()) {
+        return weights.at(index);
+    } else {
+        return -1.f;
+    }
+}
+void ofxFatLine::updateColor(int index, ofFloatColor& c){
+    if (index < getVertices().size()) {
+        colors.at(index) = c;
+    }
+};
+ofColor ofxFatLine::getColor(int index){
+    if (index < getVertices().size()) {
+        return colors.at(index);
+    } else {
+        return ofColor();
+    }
+}
+//--------------------------------------------------------------
 void ofxFatLine::updateMesh(){
     meshVertices.clear();
     meshColors.clear();
