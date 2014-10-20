@@ -119,6 +119,10 @@ public:
     void draw();
     void update();
     void updatePoint(int index, ofVec3f p);
+    void updateWeight(int index, float w);
+    float getWeight(int index);
+    void updateColor(int index, ofFloatColor& c);
+    ofColor getColor(int index);
     ofMesh &getMesh(){return mesh;}
     void drawDebug();
     void printDebug();
