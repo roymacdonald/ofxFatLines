@@ -12,7 +12,7 @@ ofxFatLine::ofxFatLine(){
 	bFeatherAtCore = true;
 	bUseGlobalColor = false;
 	bUseGlobalWidth = 1;
-	cout << "ofxFatLine" << endl;
+    //cout << "ofxFatLine" << endl;
 }
 //--------------------------------------------------------------
 void ofxFatLine::setFromPolyline(ofPolyline & poly){
@@ -30,21 +30,21 @@ void ofxFatLine::setFromPolyline(ofPolyline & poly){
 	}		
 }
 //--------------------------------------------------------------
-ofxFatLine::ofxFatLine(const vector<ofVec3f> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation){
+ofxFatLine::ofxFatLine(const vector<ofDefaultVec3> &P,const vector<ofFloatColor> &C, const vector<double> &W, bool triangulation){
     ofxFatLine();
     add(P, C, W);
     enableTriangulation(triangulation); 
    // update();
 }
 //--------------------------------------------------------------
-void ofxFatLine::add(const ofVec3f &thePoint, const ofFloatColor &theColor, const double &theWeight){
+void ofxFatLine::add(const ofDefaultVec3 &thePoint, const ofFloatColor &theColor, const double &theWeight){
     addVertex(thePoint);
     addColor(theColor);
     addWeight(theWeight);
     update();
 }
 //--------------------------------------------------------------
-void ofxFatLine::add(const vector<ofVec3f> &thePoints, const vector<ofFloatColor> &theColors, const vector<double> &theWeights){
+void ofxFatLine::add(const vector<ofDefaultVec3> &thePoints, const vector<ofFloatColor> &theColors, const vector<double> &theWeights){
     addVertices(thePoints);
     addColors(theColors);
     addWeights(theWeights);
@@ -75,7 +75,7 @@ void ofxFatLine::setGlobalWidth(float w){
 	globalWidth = w;
 }
 //--------------------------------------------------------------
-void ofxFatLine::updatePoint(int index, ofVec3f p){
+void ofxFatLine::updatePoint(int index, ofDefaultVec3 p){
     if (index < getVertices().size()) {
         getVertices()[index] = p;
     }
@@ -114,12 +114,12 @@ void ofxFatLine::updateMesh(){
     for (int i =0; i<getVertices().size(); i++) {
         updateVertex(i);
         /*
-         ofVec3f a (getVertices()[i-1] - getVertices()[i]);
-         ofVec3f b (getVertices()[i+1] - getVertices()[i]);
+         ofDefaultVec3 a (getVertices()[i-1] - getVertices()[i]);
+         ofDefaultVec3 b (getVertices()[i+1] - getVertices()[i]);
          
          float  angle = a.angle(b);
          
-         ofVec3f p = getMidVector(a, b);
+         ofDefaultVec3 p = getMidVector(a, b);
          bool flip = !sameSideOfLine(p, flippepMidVectors.back(), getVertices()[i-1], getVertices()[i]);
          
          float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
@@ -158,19 +158,19 @@ void ofxFatLine::updateVertex(int index){
         bool flip = !sameSideOfLine(p, flippepMidVectors.back(), getVertices()[index-1], getVertices()[index]);
         
         float cs = cos(DEG_TO_RAD * (90 - angle*0.5f));
-        pushNewVertex(getVertices()[index], p, a.cross(ofVec3f(0,0,1).normalized()), b.cross(ofVec3f(0,0,1).normalized()),hyp, index, cs, flip);
+        pushNewVertex(getVertices()[index], p, a.cross(ofVec3f(0,0,1).getNormalized()), b.cross(ofVec3f(0,0,1).getNormalized()),hyp, index, cs, flip);
     }
 }
 //--------------------------------------------------------------
-void ofxFatLine::pushNewAnchor(ofVec3f a, ofFloatColor c){
+void ofxFatLine::pushNewAnchor(ofDefaultVec3 a, ofFloatColor c){
     meshVertices.push_back(a);
     meshColors.push_back(c);
 }
 //--------------------------------------------------------------
-void ofxFatLine::pushNewAnchors(ofVec3f v, ofVec3f dir, ofFloatColor color, float l1, float l2, bool bInv){
+void ofxFatLine::pushNewAnchors(ofDefaultVec3 v, ofDefaultVec3 dir, ofFloatColor color, float l1, float l2, bool bInv){
     
-    ofVec3f pp = dir * l1;
-    ofVec3f pa = pp + dir *l2;
+    ofDefaultVec3 pp = dir * l1;
+    ofDefaultVec3 pa = pp + dir *l2;
     ofFloatColor c(color.r, color.g, color.g, 0);
     if (!bInv) {
         pushNewAnchor(pp + v, color);        
@@ -261,8 +261,8 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, flo
     }
 
     /*
-     ofVec3f pp = p * 50 * cos;
-     ofVec3f pa = pp + p * 2 * cos;
+     ofDefaultVec3 pp = p * 50 * cos;
+     ofDefaultVec3 pa = pp + p * 2 * cos;
      
      meshVertices.push_back(pa + v);
      meshColors.push_back(c);
@@ -339,9 +339,9 @@ void ofxFatLine::updateJoint(int index, bool bFlip){
 }
 //--------------------------------------------------------------
 void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
-    ofVec3f p = (p1 - p2).cross(ofVec3f(0,0,1)).normalize(); 
+    ofVec3f p = (p1 - p2).cross(ofVec3f(0,0,1)).normalize();
     bool flip = false;
-    ofVec3f dir = (p2-p1).normalized(); 
+    ofVec3f dir = (p2-p1).getNormalized();
     if (cap == OFX_FATLINE_CAP_SQUARE) {
         p2 =  dir * weights[index]*0.5f;
     }
@@ -386,24 +386,24 @@ void ofxFatLine::draw(){
 //--------------------------------------------------------------
 void ofxFatLine::drawDebug(){
     ofPushStyle();
-    ofSetColor(255, 0,127);
-    ofCircle(getVertices()[0], 5);
-    ofSetColor(255, 0,0);
-    ofSetLineWidth(3);
+    //ofSetColor(255, 0,127);
+    ofDrawCircle(getVertices()[0], 5);
+    //ofSetColor(255, 0,0);
+    //ofSetLineWidth(3);
     for (int i = 1; i<getVertices().size(); i++) {
-        ofLine(getVertices()[i-1], getVertices()[i]);
+        ofDrawLine(getVertices()[i-1], getVertices()[i]);
     }
     
-    ofMesh m(mesh);
+    /*ofMesh m(mesh);
     m.disableColors();
     ofSetLineWidth(1);
     ofSetColor(0);
-    m.drawWireframe();
+    m.drawWireframe();*/
     
     ofSetColor(0);
-    for (int i =0; i < meshVertices.size(); i++) {
+    /*for (int i =0; i < meshVertices.size(); i++) {
         ofDrawBitmapStringHighlight(ofToString(i), meshVertices[i]);
-    }
+    }*/
     
     ofPopStyle();
     
