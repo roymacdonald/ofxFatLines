@@ -357,10 +357,10 @@ void ofxFatLine::updateCap(ofVec3f p1, ofVec3f p2, int index){
             }
             flippepMidVectors.push_back(p*-1);
             
-            pushNewAnchors(p2, p, colors[0], weights[0], feathering, true);
-            pushNewAnchor(p2, colors[0]);
+            pushNewAnchors(p2, p, colors[index], weights[index], feathering, true);
+            pushNewAnchor(p2, colors[index]);
             p *=-1;
-            pushNewAnchors(p2, p, colors[0], weights[0], feathering, false);
+            pushNewAnchors(p2, p, colors[index], weights[index], feathering, false);
             if (index != 0) {
                 if (meshVertices.size() >5) {
                     for (int i = meshVertices.size()-4; i<meshVertices.size(); i++) {
