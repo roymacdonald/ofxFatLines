@@ -1,6 +1,5 @@
 #pragma once
 #include "ofMain.h"
-#include "sincosineLut.h"
 
 //--------------------------------------------------------------
 inline bool lineSegmentsIntersect(const ofVec2f & l1a, const ofVec2f & l1b, const ofVec2f & l2a, const ofVec2f & l2b){

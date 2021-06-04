@@ -206,7 +206,7 @@ void ofxFatLine::pushNewVertex(ofVec3f v, ofVec3f p, ofVec3f r1, ofVec3f r2, flo
     }
     flippepMidVectors.push_back(p);
     if (bAligned) {
-		cout << "vertexAligned" << endl;
+		ofLogVerbose("ofxFatLine::pushNewVertex") << "vertex Aligned";
 		pushNewAnchors(v, p*-1, colors[index], weights[index], feathering, true);
         pushNewAnchor(v, colors[index]);
         pushNewAnchors(v, p, colors[index], weights[index], feathering, false);
@@ -320,10 +320,10 @@ void ofxFatLine::updateMeshIndices(){
 void ofxFatLine::updateJoint(int index, bool bFlip){
     int l = meshVertices.size()-1;
     if (joint == OFX_FATLINE_JOINT_MITER) {
-        cout << "update joint miter" << endl;
+		ofLogVerbose("ofxFatLine::updateJoint") << "update joint miter";
         
     }else if (joint == OFX_FATLINE_JOINT_BEVEL){
-        cout << "update joint bevel" << endl;
+        ofLogVerbose("ofxFatLine::updateJoint")  << "update joint bevel";
         if (bFlip) {
             pushTriangleIndices(l -1, l-2, l-6);
             pushQuadIndices(l -6, l-5, l-1, l);
@@ -332,7 +332,7 @@ void ofxFatLine::updateJoint(int index, bool bFlip){
             pushQuadIndices(l -6, l-5, l-4, l-3);        
         }
     }else if (joint == OFX_FATLINE_JOINT_ROUND){
-        cout << "update joint round" << endl;        
+		ofLogVerbose("ofxFatLine::updateJoint")  << "update joint round";
         
     }
     
